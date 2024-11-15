@@ -6,7 +6,7 @@ sys.path.append(SYSTEM_PATH)
 
 from openai import OpenAI
 from backend import env
-client = OpenAI()
+client = OpenAI() 
 
 completion = client.chat.completions.create(
     model="gpt-4o-mini",
