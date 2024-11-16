@@ -1,2 +1,2 @@
 from .env import *
-from .QueryPreprocessor import *
+from .query_preprocessor import *
