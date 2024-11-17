@@ -8,6 +8,13 @@ from backend import env
 from backend import SemanticChunker
 from llama_index.core.schema import Document as LlamaIndexDocument
 
+"""
+This script test functionality of semantic chunker.
+Usage:
+Can config the Chunker, see SemanticChunker class
+The script should return splitted paragraphs of text in form of TextNode.
+"""
+
 semantic_chunker = SemanticChunker()
 
 sample_document = LlamaIndexDocument(
@@ -17,5 +24,4 @@ sample_document = LlamaIndexDocument(
 nodes = semantic_chunker.chunk_nodes_from_documents([sample_document])
 for node in nodes:
     print(node.text,'\n\n')
-
 
