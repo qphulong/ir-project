@@ -6,6 +6,13 @@ sys.path.append(SYSTEM_PATH)
 
 from backend.query_preprocessor import QueryPreprocessor
 
+"""
+This script test functionality of QueryPreprocessor.
+
+Usage: (on console interface)
+User enter query and k suggestion, it should return a list of k refined query strings.
+"""
+
 query = ""
 
 while query != "-q":
