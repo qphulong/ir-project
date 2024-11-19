@@ -10,81 +10,6 @@ from typing import List, Optional, Dict, Any
 edition_link = "https://edition.cnn.com/"
 
 
-def create_folder(folder_name: str) -> None:
-    if not os.path.exists(folder_name):
-        os.makedirs(folder_name)
-        print(f"Folder '{folder_name}' created.")
-    else:
-        print(f"Folder '{folder_name}' already exists.")
-
-
-def save_post_data_to_json(post_data: Dict[str, Any], filename: str) -> None:
-    create_folder("CNN")
-    file_path = os.path.join("CNN", filename)
-    with open(file_path, 'w', encoding='utf-8') as json_file:
-        json.dump(post_data, json_file, ensure_ascii=False, indent=4)
-    print(f"Post data has been saved to {file_path}")
-
-
-def scrape_post(url: str) -> None:
-    user_agent = UserAgent()
-    headers = {'User-Agent': user_agent.random}
-    response = requests.get(url, headers=headers)
-
-    if response.status_code != 200:
-        print(f"Failed to retrieve {url}")
-        return
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    post_data = {}
-
-    script_tag = soup.find('script', text=lambda t: t and "pageStellarId" in t)
-    if script_tag:
-        script_content = script_tag.string
-        start_index = script_content.find("pageStellarId: '") + len("pageStellarId: '")
-        end_index = script_content.find("'", start_index)
-        post_data["pageStellarId"] = script_content[start_index:end_index]
-    else:
-        post_data["pageStellarId"] = None
-
-    post_data["url"] = url
-
-    title_tag = soup.find('title')
-    post_data["title"] = title_tag.get_text(strip=True) if title_tag else None
-
-    publish_date_tag = soup.find('meta', {'property': 'article:published_time'})
-    post_data["publish_date"] = publish_date_tag['content'] if publish_date_tag else None
-
-    last_update_tag = soup.find('meta', {'property': 'article:modified_time'})
-    post_data["last_update_date"] = last_update_tag['content'] if last_update_tag else None
-
-    ld_json_tag = soup.find('script', {'type': 'application/ld+json'})
-    if ld_json_tag:
-        ld_json_data = json.loads(ld_json_tag.string)
-        if isinstance(ld_json_data, list):
-            for item in ld_json_data:
-                if item.get('@type') == 'NewsArticle':
-                    post_data["content"] = item.get('articleBody', None)
-        elif ld_json_data.get('@type') == 'NewsArticle':
-            post_data["content"] = ld_json_data.get('articleBody', None)
-
-    images_info = []
-    img_tags = soup.find_all('img')
-    for img_tag in img_tags:
-        image_url = img_tag.get('src')
-        image_alt = img_tag.get('alt')
-        if image_url and image_alt:
-            images_info.append({
-                "image_url": image_url,
-                "image_alt": image_alt
-            })
-
-    post_data["images"] = images_info
-
-    save_post_data_to_json(post_data, f"{post_data['pageStellarId']}.json")
-
-
 class CNNCrawler:
     """
     A class to scrape and save detailed post data from CNN articles.
@@ -120,7 +45,7 @@ class CNNCrawler:
         save_post_data_to_json(post_data: Dict[str, Any], filename: str):
             Saves the scraped article data to a JSON file in the output directory.
     """
-    def __init__(self, output_dir: str = "CNN"):
+    def __init__(self, output_dir: str = "database/CNN"):
         self.output_dir = output_dir
         self.user_agent = UserAgent()
 
@@ -145,7 +70,7 @@ class CNNCrawler:
             "author_profile": self.extract_author_profile(soup),
             "publish_date": self.extract_meta_content(soup, 'article:published_time'),
             "last_update_date": self.extract_meta_content(soup, 'article:modified_time'),
-            "content": self.extract_article_body(soup),
+            "content": self.extract_article_paragraphs(soup),
             "images": self.extract_images(soup),
         }
 
@@ -173,17 +98,18 @@ class CNNCrawler:
         meta_tag = soup.find('meta', {'property': property_name})
         return meta_tag['content'] if meta_tag else None
 
-    def extract_article_body(self, soup: BeautifulSoup) -> Optional[str]:
-        ld_json_tag = soup.find('script', {'type': 'application/ld+json'})
-        if ld_json_tag:
-            ld_json_data = json.loads(ld_json_tag.string)
-            if isinstance(ld_json_data, list):
-                for item in ld_json_data:
-                    if item.get('@type') == 'NewsArticle':
-                        return item.get('articleBody', None)
-            elif ld_json_data.get('@type') == 'NewsArticle':
-                return ld_json_data.get('articleBody', None)
-        return None
+    def extract_article_paragraphs(self, soup: BeautifulSoup) -> List[str]:
+        paragraphs = []
+        paragraph_tags = soup.find_all('p', class_='paragraph inline-placeholder vossi-paragraph')
+        if not paragraph_tags:
+            fallback_div = soup.find('div', class_='video-resource__description')
+            if fallback_div:
+                paragraph_tags = fallback_div.find_all('p')  
+        for p_tag in paragraph_tags:
+            text = p_tag.get_text(strip=True)
+            if text:  
+                paragraphs.append(text)
+        return paragraphs
 
     def extract_images(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         images_info = []
