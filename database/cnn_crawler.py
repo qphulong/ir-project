@@ -92,7 +92,16 @@ class CNNCrawler:
 
     def extract_author_profile(self, soup: BeautifulSoup) -> Optional[str]:
         author_link_tag = soup.find('a', class_='byline__link')
-        return author_link_tag['href'] if author_link_tag else None
+        if author_link_tag:
+            return author_link_tag['href'] 
+
+        byline_names_div = soup.find('div', class_='byline__names')
+        if byline_names_div:
+            name_span = byline_names_div.find('span', class_='byline__name')
+            if name_span:
+                return name_span.get_text(strip=True)
+        
+        return None
 
     def extract_meta_content(self, soup: BeautifulSoup, property_name: str) -> Optional[str]:
         meta_tag = soup.find('meta', {'property': property_name})
