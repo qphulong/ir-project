@@ -5,7 +5,7 @@ SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
 from llama_index.core import Document as LlamaIndexDocument
-from llama_index.core.node_parser import SemanticSplitterNodeParser
+from paragraph_semantic_splitter import SemanticSplitterNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding, OpenAIEmbeddingMode, OpenAIEmbeddingModelType
 from typing import List
 from llama_index.core.schema import TextNode
@@ -32,7 +32,7 @@ class SemanticChunker():
             mode: OpenAIEmbeddingMode = OpenAIEmbeddingMode.SIMILARITY_MODE,
             model: OpenAIEmbeddingModelType = OpenAIEmbeddingModelType.TEXT_EMBED_3_SMALL,
             buffer_size: int = 1,
-            breakpoint_percentile_threshold: int = 95,
+            breakpoint_percentile_threshold: int = 75,
             include_metadata: bool = True
         ) -> None:
         """
