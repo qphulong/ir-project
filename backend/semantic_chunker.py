@@ -5,7 +5,7 @@ SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
 from llama_index.core import Document as LlamaIndexDocument
-from paragraph_semantic_splitter import SemanticSplitterNodeParser
+from .paragraph_semantic_splitter import SemanticSplitterNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding, OpenAIEmbeddingMode, OpenAIEmbeddingModelType
 from typing import List
 from llama_index.core.schema import TextNode
