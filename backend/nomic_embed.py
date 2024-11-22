@@ -10,7 +10,7 @@ class NomicEmbed(BaseEmbedding):
     """
     Class to embed text to embeddings.
     This class inherited with llama_index BaseEmbedding to
-    work with this lib components. See 
+    work with this lib components. See BaseEmbedding class
 
     Attribute:
         model: SentenceTransformer object with BaseEmbedding interface
@@ -19,6 +19,8 @@ class NomicEmbed(BaseEmbedding):
 
     Methods:
         Well, the function names are self-explained. :)
+    
+    *Note: This class return numpy ndarray or torch tensor, config with _convert_to_numpy
     """
     _embed_model:SentenceTransformer = PrivateAttr()
     _precision: str = PrivateAttr()
