@@ -9,6 +9,7 @@ from .paragraph_semantic_splitter import SemanticSplitterNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding, OpenAIEmbeddingMode, OpenAIEmbeddingModelType
 from typing import List
 from llama_index.core.schema import TextNode
+from ..nomic_embed import NomicEmbed
 
 class SemanticChunker():
     """
@@ -29,8 +30,6 @@ class SemanticChunker():
     """
     def __init__(
             self,
-            mode: OpenAIEmbeddingMode = OpenAIEmbeddingMode.SIMILARITY_MODE,
-            model: OpenAIEmbeddingModelType = OpenAIEmbeddingModelType.TEXT_EMBED_3_SMALL,
             buffer_size: int = 1,
             breakpoint_percentile_threshold: int = 75,
             include_metadata: bool = True
@@ -50,10 +49,13 @@ class SemanticChunker():
                                                     will be generated.
             include_metadata (bool): Whether to include metadata in the chunking process.
         """
-        self.embed_model = OpenAIEmbedding(
-            mode=mode,
-            model=model
-        )
+        # self.embed_model = OpenAIEmbedding(
+        #     mode=mode,
+        #     model=model
+        # )
+
+        self.embed_model = NomicEmbed()
+
         self.semantic_chunker = SemanticSplitterNodeParser(
             buffer_size=buffer_size,
             breakpoint_percentile_threshold=breakpoint_percentile_threshold,
@@ -71,5 +73,5 @@ class SemanticChunker():
         Returns:
             List[TextNode]: A list of TextNodes created from the provided documents.
         """
-        nodes:List[TextNode] = self.semantic_chunker.get_nodes_from_documents(documents=documents)
+        nodes:List[TextNode] = self.semantic_chunker.get_nodes_from_documents(documents=documents, show_progress=True)
         return nodes
