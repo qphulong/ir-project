@@ -7,8 +7,7 @@ Project structure
 │   ├───frontend
 │   └───test-scripts
 ├───models
-├───small-database
-├───big-database
+├───resources
 ├───venv
 └───.env
 ```
@@ -34,7 +33,7 @@ Outer layer: You MUST create these directory/files manually
 ```bash
 models: contains any local llm or embed models
 
-database: contain databse, both raw and indexed (small is for test, big for real deploy)
+resources: contain databse, both raw and indexed
 
 venv: python venv for this project
 
