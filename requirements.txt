@@ -7,3 +7,4 @@ python-dotenv==1.0.1
 openai==1.54.3
 llama-index==0.11.23
 langchain==0.3.7
+pprintpp==0.4.0
