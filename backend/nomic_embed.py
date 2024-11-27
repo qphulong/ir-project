@@ -3,6 +3,7 @@ from llama_index.core.base.embeddings.base import Embedding
 from llama_index.core.embeddings import BaseEmbedding
 from sentence_transformers import SentenceTransformer
 from llama_index.core.bridge.pydantic import PrivateAttr
+from gpt4all import Embed4All
 
 from typing import List
 
@@ -25,7 +26,7 @@ class NomicEmbed(BaseEmbedding):
     _embed_model:SentenceTransformer = PrivateAttr()
     _precision: str = PrivateAttr()
     _convert_to_numpy: bool = PrivateAttr()
-    def __init__(self,model_path:str,**kwargs:Any):
+    def __init__(self,model_path:str='../models/nomic-text-embed-v1.5',**kwargs:Any):
         super().__init__(**kwargs)
         self._embed_model =  SentenceTransformer(
             model_name_or_path=model_path,
@@ -72,3 +73,48 @@ class NomicEmbed(BaseEmbedding):
         return embeddings
     
     
+class NomicEmbedQuantized(BaseEmbedding):
+    """
+    BaseEmbedding class interface works with Nomic embed quantized model.
+    """
+    _embed_model:Embed4All = PrivateAttr()
+    def __init__(
+            self,
+            model_path:str='../models/',
+            model_name:str='nomic-embed-text-v1.5.Q8_0.gguf',
+            **kwargs:Any
+        ):
+        super().__init__(**kwargs)
+        self._embed_model =  Embed4All(
+            model_path=model_path,
+            allow_download=False,
+            model_name=model_name
+        )
+
+    def _get_text_embedding(self, text:str):
+        embeddings = self._embed_model.embed(
+            text=text,
+            prefix='search_document'
+        )
+        return embeddings
+
+    async def _aget_text_embedding(self, text:str):
+        embeddings = await self._embed_model.embed(
+            text=text,
+            prefix='search_document'
+        )
+        return embeddings
+    
+    def _get_query_embedding(self, query: str):
+        embeddings = self._embed_model.embed(
+            text=query,
+            prefix='search_query'
+        )
+        return embeddings
+    
+    async def _aget_query_embedding(self, query: str):
+        embeddings = await self._embed_model.embed(
+            text=query,
+            prefix='search_query'
+        )
+        return embeddings
