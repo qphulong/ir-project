@@ -27,6 +27,9 @@ class SemanticChunker():
     Methods:
         chunk_nodes_from_documents(documents: List[LLamaIndexDocument]) -> List[TextNode]:
             Chunks a list of LLamaIndexDocuments into a list of TextNodes.
+
+    #TODO: this class currently use local nomic embed model, you may want to edit this
+    class for further development.
     """
     def __init__(
             self,

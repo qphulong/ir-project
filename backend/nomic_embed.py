@@ -74,13 +74,21 @@ class NomicEmbed(BaseEmbedding):
     
     
 class NomicEmbedQuantized(BaseEmbedding):
+    """
+    BaseEmbedding class interface works with Nomic embed quantized model.
+    """
     _embed_model:Embed4All = PrivateAttr()
-    def __init__(self,model_path:str='../models/',**kwargs:Any):
+    def __init__(
+            self,
+            model_path:str='../models/',
+            model_name:str='nomic-embed-text-v1.5.Q8_0.gguf',
+            **kwargs:Any
+        ):
         super().__init__(**kwargs)
         self._embed_model =  Embed4All(
             model_path=model_path,
             allow_download=False,
-            model_name='nomic-embed-text-v1.5.Q8_0.gguf'
+            model_name=model_name
         )
 
     def _get_text_embedding(self, text:str):
