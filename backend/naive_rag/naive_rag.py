@@ -1,4 +1,4 @@
-from .retriver import Retriever
+from .retriever import Retriever
 from .generator import Generator
 
 class NaiveRAG():
