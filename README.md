@@ -73,3 +73,33 @@ pip install -r requirements.txt
 ```
 
 If you set up correctly, try 'py .\test-scripts\hello_gpt.py'. You will see a message from ChatGPT :)
+
+## Frontend setup
+Require node.js version 20 and above.
+
+1. Install the root `package.json`:
+```bash
+npm run install
+```
+
+2. Install the packages for `frontend`:
+```bash
+npm run sync:frontend
+```
+
+3. Add the following lines to the end of your `.env` file:
+```bash
+VITE_ENTRY_PATH=src/main.tsx
+FLASK_ENV=development # remove/overwrite this var for production mode 
+```
+
+4. Run this command to start the development server with hot reload:
+```bash
+npm run dev
+```
+
+# Production build
+Run this command to build the static 
+```bash
+npm run dev
+```
