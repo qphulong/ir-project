@@ -1,4 +1,4 @@
-# Guilde to set up 
+# IR project
 ```bash
 Project structure
 ├───ir-project
@@ -98,8 +98,8 @@ FLASK_ENV=development # remove/overwrite this var for production mode
 npm run dev
 ```
 
-# Production build
+## Production build
 Run this command to build the static 
 ```bash
-npm run dev
+npm run build
 ```
