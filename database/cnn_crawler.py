@@ -19,6 +19,9 @@ class CNNCrawler:
 
     Attributes:
         output_dir (str): The directory where scraped data will be saved.
+        visited_links_file (str): The filename to store visited URLs.
+        visited_links (set): A set to keep track of visited links to avoid re-scraping.
+        max_depth (int): The maximum depth to crawl for related articles.
 
     Methods:
         create_folder():
@@ -90,7 +93,7 @@ class CNNCrawler:
             driver = webdriver.Chrome(options=options)
             driver.get(url)
         
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 3).until(
                 EC.presence_of_all_elements_located((By.TAG_NAME, "body"))
             )
         
@@ -113,6 +116,7 @@ class CNNCrawler:
             "publish_date": self.extract_meta_content(soup, 'article:published_time'),
             "last_update_date": self.extract_meta_content(soup, 'article:modified_time'),
             "content": self.extract_article_paragraphs(soup),
+            "subtitile_link": self.extract_srt_link(soup) if "/videos/" in url or "/video/" in url else None,
             "images": self.extract_images(soup),
         }
 
@@ -126,7 +130,7 @@ class CNNCrawler:
         self.visited_links.add(url)
         self.save_visited_links()
 
-        self.scrape_related_links(soup, current_depth + 1)
+        #self.scrape_related_links(soup, current_depth + 1)
 
     def scrape_related_links(self, soup: BeautifulSoup, current_depth: int) -> None:
         links = soup.find_all("a", href=True, class_="container__link")
@@ -140,7 +144,7 @@ class CNNCrawler:
                 continue
             if full_url in self.visited_links:
                 continue
-            if "/videos/" in href or "/video/" in href:
+            if not "/videos/" in href and not "/video/" in href:
                 continue
             self.scrape_post(full_url, current_depth)
         
@@ -201,6 +205,28 @@ class CNNCrawler:
                     "image_alt": image_alt
                 })
         return images_info
+    
+    def extract_srt_link(self, soup: BeautifulSoup) -> Optional[str]:
+        script_tag = soup.find('script', type='application/ld+json')
+        if script_tag:
+            try:
+                data = json.loads(script_tag.string)
+
+                if isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict) and "caption" in item:
+                            captions = item["caption"]
+                            for caption in captions:
+                                if caption.get("encodingFormat") == "srt":
+                                    return caption.get("url")
+                elif isinstance(data, dict):
+                    captions = data.get("caption", [])
+                    for caption in captions:
+                        if caption.get("encodingFormat") == "srt":
+                            return caption.get("url")
+            except json.JSONDecodeError:
+                return None
+        return None
 
     def save_post_data_to_json(self, post_data: Dict[str, Any], filename: str) -> None:
         self.create_folder()
@@ -209,20 +235,20 @@ class CNNCrawler:
         with open(file_path, 'w', encoding='utf-8') as json_file:
             json.dump(post_data, json_file, ensure_ascii=False, indent=4)
 
-
+'''
 class CNNLinkGetter:
     """
-    A class to retrieve links to articles from the CNN homepage.
-
+    A class to scrape CNN post links (including video links) from the homepage.
+    
     Attributes:
-        base_url (str): The base URL of the CNN homepage.
+        base_url (str): The base URL of the CNN website (default is 'https://edition.cnn.com').
 
     Methods:
         get_web_stats(url: str) -> str:
-            Opens the given URL in a browser, retrieves, and returns the page source.
-
-        get_CNN_post_links(limit: int = 100) -> List[str]:
-            Extracts and returns a list of article links from the CNN homepage.
+            Scrapes the web page content for a given URL using Selenium.
+        
+        get_CNN_post_links(limit: int = 100000) -> List[str]:
+            Scrapes post links from the CNN homepage, including video links, up to a specified limit.
     """
     def __init__(self, base_url: str = "https://edition.cnn.com"):
         self.base_url = base_url
@@ -238,14 +264,14 @@ class CNNLinkGetter:
         finally:
             driver.quit()
 
-    def get_CNN_post_links(self, limit: int = 1000000000000000000000000000000) -> List[str]:
+    def get_CNN_post_links(self, limit: int = 100000) -> List[str]:
         content = self.get_web_stats(self.base_url)
         soup = BeautifulSoup(content, 'html.parser')
 
         post_links = []
         for a in soup.select('a.container__link'):
             href = a.get('href')
-            if href and "/videos/" not in href and "/video/" not in href:
+            if href and "/videos/" in href or "/video/" in href:
                 full_url = href if href.startswith('http') else ("https://edition.cnn.com").rstrip('/') + href
                 post_links.append(full_url)
 
@@ -263,8 +289,6 @@ def get_subnav_links(base_url: str) -> List[str]:
             driver.get(base_url)
     
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-    
-            # Extract all links with the class 'subnav__section-link'
             subnav_links = []
             for a_tag in soup.find_all('a', class_='subnav__section-link'):
                 href = a_tag.get('href')
@@ -275,9 +299,62 @@ def get_subnav_links(base_url: str) -> List[str]:
             return subnav_links
         finally:
             driver.quit()
+    '''
+
+class CNNSearcher:
+    """
+    A class to interact with the CNN search page and retrieve links to search results.
+
+    This class allows users to search for a specific keyword on the CNN website and retrieve
+    a list of URLs of the articles or videos in the search results. It uses Selenium to scrape
+    the search result page and fetch the URLs of the articles or videos.
+
+    Attributes:
+        base_url (str): The base URL for the CNN search page (default is 'https://edition.cnn.com/search').
+
+    Methods:
+        search(keyword: str, size: int = 10, page: int = 1, sort: str = "newest") -> List[str]:
+            Searches CNN for the given keyword and returns a list of URLs of the search result articles.
+            Supports pagination and sorting by date.
+    """
+    def __init__(self, base_url: str = "https://edition.cnn.com/search"):
+        self.base_url = base_url
+
+    def search(self, keyword: str, size: int = 10, page: int = 1, sort: str = "newest") -> List[str]:
+        start_index = (page - 1) * size
+        
+        search_url = f"{self.base_url}?q={keyword}&from={start_index}&size={size}&page={page}&sort={sort}&types=all&section="
+        
+        ua = UserAgent()
+        user_agent = ua.random
+
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument(f"user-agent={user_agent}")
+        driver = webdriver.Chrome(options=options)
+
+        try:
+            driver.get(search_url)
+
+            driver.implicitly_wait(3)
+
+            result_links = []
+            elements = driver.find_elements(By.CSS_SELECTOR, "a.container__link")
+            for element in elements:
+                href = element.get_attribute("href")
+                if href:
+                    full_url = href if href.startswith("http") else f"https://edition.cnn.com{href}"
+                    if full_url not in result_links:
+                        result_links.append(full_url)
+            print(result_links)
+            return result_links
+        finally:
+            driver.quit()
 
 
 if __name__ == "__main__":
+    '''
     base_url = "https://edition.cnn.com/"
 
     subnav_links = get_subnav_links(base_url)
@@ -296,8 +373,22 @@ if __name__ == "__main__":
         for link in links:
             crawler.scrape_post(link)
     '''
-    crawler = CNNCrawler()
-    crawler.scrape_post("https://edition.cnn.com/travel/article/vietnam-food-dishes/index.html")
+
     '''
+    crawler = CNNCrawler()
+    crawler.scrape_post("https://edition.cnn.com/2024/12/02/climate/video/reefgen-seagrass-robots-regenerative-aquaculture-spc")
+    '''
+    
+    keyword = input("Enter the search keyword: ")
+    size = int(input("Enter the number of results per page: "))
+
+    searcher = CNNSearcher()
+
+    links = searcher.search(keyword=keyword, size=size, page=1, sort="newest")
+
+    crawler = CNNCrawler()
+
+    for link in links:
+        crawler.scrape_post(link)
     
     
