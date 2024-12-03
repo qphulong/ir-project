@@ -116,7 +116,7 @@ class CNNCrawler:
             "publish_date": self.extract_meta_content(soup, 'article:published_time'),
             "last_update_date": self.extract_meta_content(soup, 'article:modified_time'),
             "content": self.extract_article_paragraphs(soup),
-            "subtitile_link": self.extract_srt_link(soup) if "/videos/" in url or "/video/" in url else None,
+            "subtitile": self.extract_srt(soup) if "/videos/" in url or "/video/" in url else None,
             "images": self.extract_images(soup),
         }
 
@@ -206,7 +206,7 @@ class CNNCrawler:
                 })
         return images_info
     
-    def extract_srt_link(self, soup: BeautifulSoup) -> Optional[str]:
+    def extract_srt(self, soup: BeautifulSoup) -> Optional[str]:
         script_tag = soup.find('script', type='application/ld+json')
         if script_tag:
             try:
@@ -218,19 +218,37 @@ class CNNCrawler:
                             captions = item["caption"]
                             for caption in captions:
                                 if caption.get("encodingFormat") == "srt":
-                                    return caption.get("url")
+                                    url = caption.get("url")
+                                    print(url)
+                                    subtitle = self.get_text_from_srt(url)
+                                    return subtitle
                 elif isinstance(data, dict):
                     captions = data.get("caption", [])
                     for caption in captions:
                         if caption.get("encodingFormat") == "srt":
-                            return caption.get("url")
+                            subtitle = self.get_text_from_srt(caption.get("url"))
+                            return subtitle
             except json.JSONDecodeError:
                 return None
         return None
+    
+    def get_text_from_srt(self, url: str) -> str:
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            raise Exception("Failed to download the SRT file")
+
+        lines = response.text.splitlines()
+
+        text = []
+        for line in lines:
+            if "-->" not in line and line.strip() and not line.strip().isdigit():
+                text.append(line.strip())
+
+        return " ".join(text)
 
     def save_post_data_to_json(self, post_data: Dict[str, Any], filename: str) -> None:
         self.create_folder()
-            
         file_path = os.path.join(self.output_dir, filename)
         with open(file_path, 'w', encoding='utf-8') as json_file:
             json.dump(post_data, json_file, ensure_ascii=False, indent=4)
@@ -374,11 +392,9 @@ if __name__ == "__main__":
             crawler.scrape_post(link)
     '''
 
-    '''
     crawler = CNNCrawler()
     crawler.scrape_post("https://edition.cnn.com/2024/12/02/climate/video/reefgen-seagrass-robots-regenerative-aquaculture-spc")
     '''
-    
     keyword = input("Enter the search keyword: ")
     size = int(input("Enter the number of results per page: "))
 
@@ -390,5 +406,7 @@ if __name__ == "__main__":
 
     for link in links:
         crawler.scrape_post(link)
+    '''
+    
     
     
