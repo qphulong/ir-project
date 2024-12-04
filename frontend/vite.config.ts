@@ -3,8 +3,16 @@ import react from '@vitejs/plugin-react-swc';
 import tsConfigPaths from 'vite-tsconfig-paths';
 import svgr from "vite-plugin-svgr";
 
+import path from "path"
+
+
 export default defineConfig({
   plugins: [svgr(), react(), tsConfigPaths()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
   build: {
     manifest: true,
     outDir: '../backend/api/static/dist',
