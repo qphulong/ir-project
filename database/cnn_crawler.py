@@ -115,8 +115,7 @@ class CNNCrawler:
             "author_profile": self.extract_author_profile(soup),
             "publish_date": self.extract_meta_content(soup, 'article:published_time'),
             "last_update_date": self.extract_meta_content(soup, 'article:modified_time'),
-            "content": self.extract_article_paragraphs(soup),
-            "subtitile": self.extract_srt(soup) if "/videos/" in url or "/video/" in url else None,
+            "content": self.extract_srt(soup) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup),
             "images": self.extract_images(soup),
         }
 
@@ -219,14 +218,14 @@ class CNNCrawler:
                             for caption in captions:
                                 if caption.get("encodingFormat") == "srt":
                                     url = caption.get("url")
-                                    print(url)
                                     subtitle = self.get_text_from_srt(url)
                                     return subtitle
                 elif isinstance(data, dict):
                     captions = data.get("caption", [])
                     for caption in captions:
                         if caption.get("encodingFormat") == "srt":
-                            subtitle = self.get_text_from_srt(caption.get("url"))
+                            url = caption.get("url")
+                            subtitle = self.get_text_from_srt(url)
                             return subtitle
             except json.JSONDecodeError:
                 return None
@@ -392,8 +391,9 @@ if __name__ == "__main__":
             crawler.scrape_post(link)
     '''
 
+    '''
     crawler = CNNCrawler()
-    crawler.scrape_post("https://edition.cnn.com/2024/12/02/climate/video/reefgen-seagrass-robots-regenerative-aquaculture-spc")
+    crawler.scrape_post("https://edition.cnn.com/2024/12/03/asia/south-korea-martial-law-explainer-intl-hnk/index.html")
     '''
     keyword = input("Enter the search keyword: ")
     size = int(input("Enter the number of results per page: "))
@@ -406,7 +406,6 @@ if __name__ == "__main__":
 
     for link in links:
         crawler.scrape_post(link)
-    '''
-    
+
     
     
