@@ -12,8 +12,8 @@ from llama_index.core.schema import Document as LLamaDocument
 api = Flask(__name__)
 
 naive_rag = NaiveRAG(
-    resource_path='../test-big-database',
-    embed_model_path='../models/',
+    resource_path='./resources/test-big-database',
+    embed_model_path='./resources/models/',
 )
 
 # Register the API routes here
