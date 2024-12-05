@@ -10,8 +10,8 @@ from llama_index.core.schema import Document as LLamaDocument
 """Script to test functionality of naive rag, to exit conversation type '/exit' """
 
 naive_rag = NaiveRAG(
-    resource_path='../test-big-database',
-    embed_model_path='../models/',
+    resource_path='./resources/test-big-database',
+    embed_model_path='./resources/models/',
 )
 
 naive_rag.begin()
