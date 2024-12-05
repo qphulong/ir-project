@@ -14,7 +14,7 @@ class NaiveRAG():
         self.generator = Generator()
 
     def begin(self):
-        """\Begin conversation with RAG system, /exit to exit"""
+        """Begin conversation with RAG system, /exit to exit"""
         while(1):
             user_query = input("User query: ")
             if user_query == '/exit':
