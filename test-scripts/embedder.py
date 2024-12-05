@@ -10,7 +10,7 @@ from backend import NomicEmbed
 This script test functionality of NomicEmbed class
 """
 
-model_path = '../models/nomic-text-embed-v1.5'
+model_path = './resources/models/nomic-text-embed-v1.5'
 model = NomicEmbed(model_path=model_path)
 
 texts =[

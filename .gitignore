@@ -1,2 +1,9 @@
 __pycache__/
 *.pyc
+.venv
+frontend/node_modules/
+/node_modules/*
+/node_modules/.*
+.env
+/resources/*
+/resources/.*
