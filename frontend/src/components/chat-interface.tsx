@@ -1,11 +1,13 @@
 'use client'
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sidebar } from './sidebar'
 import { ChatArea } from './chat-area'
 import { InputArea } from './input-area'
 import { PanelLeftOpen, PanelLeftClose } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+
+import { api } from '../api/index'
+
 
 export interface Message {
   id: number
@@ -19,44 +21,100 @@ export interface Conversation {
   messages: Message[]
 }
 
-export default function ChatInterface() {
-  const [conversations, setConversations] = useState<Conversation[]>([
-    { id: 1, title: 'Welcome Chat', messages: [{ id: 1, content: "Hello! How can I assist you today?", role: 'assistant' }] }
-  ])
-  const [currentConversation, setCurrentConversation] = useState<Conversation>(conversations[0])
+export default function ChatGPTLikeInterface() {
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isTyping, setIsTyping] = useState(false)
 
-  const addMessage = (content: string) => {
+  useEffect(() => {
+    const savedConversations = localStorage.getItem('conversations')
+    if (savedConversations) {
+      const parsedConversations = JSON.parse(savedConversations)
+      setConversations(parsedConversations)
+      if (parsedConversations.length > 0) {
+        setCurrentConversation(parsedConversations[0])
+      }
+    } else {
+      const initialConversation: Conversation = {
+        id: 1,
+        title: 'Welcome Chat',
+        messages: [{ id: 1, content: "Hello! How can I assist you today?", role: 'assistant' }]
+      }
+      setConversations([initialConversation])
+      setCurrentConversation(initialConversation)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      localStorage.setItem('conversations', JSON.stringify(conversations))
+    }
+  }, [conversations])
+
+  const addMessage = async (content: string) => {
+    if (!currentConversation) return
+
     const newMessage: Message = {
       id: currentConversation.messages.length + 1,
       content,
       role: 'user'
     }
+
     const updatedConversation = {
       ...currentConversation,
       messages: [...currentConversation.messages, newMessage]
     }
+
     setCurrentConversation(updatedConversation)
     setConversations(conversations.map(conv => 
       conv.id === currentConversation.id ? updatedConversation : conv
     ))
 
-    // Simulate assistant response
-    setTimeout(() => {
+    setIsTyping(true)
+
+    try {
+      const response = await api.post('/api/chat-naiverag', { query: content })
+
+      if (!response.data) {
+        throw new Error('Failed to fetch response from API')
+      }
+      const data = response.data
+
+
       const assistantMessage: Message = {
         id: updatedConversation.messages.length + 1,
-        content: "Thank you for your message. I'm processing your request.",
+        content: data.response,
+        role: 'assistant'
+      }
+
+      const finalConversation = {
+        ...updatedConversation,
+        messages: [...updatedConversation.messages, assistantMessage]
+      }
+
+      setCurrentConversation(finalConversation)
+      setConversations(conversations.map(conv => 
+        conv.id === currentConversation.id ? finalConversation : conv
+      ))
+    } catch (error) {
+      console.error('Error fetching response:', error)
+      const errorMessage: Message = {
+        id: updatedConversation.messages.length + 1,
+        content: "I'm sorry, I encountered an error while processing your request.",
         role: 'assistant'
       }
       const finalConversation = {
         ...updatedConversation,
-        messages: [...updatedConversation.messages, assistantMessage]
+        messages: [...updatedConversation.messages, errorMessage]
       }
       setCurrentConversation(finalConversation)
       setConversations(conversations.map(conv => 
         conv.id === currentConversation.id ? finalConversation : conv
       ))
-    }, 1000)
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   const startNewConversation = () => {
@@ -69,19 +127,39 @@ export default function ChatInterface() {
     setCurrentConversation(newConversation)
   }
 
+  const renameConversation = (id: number, newTitle: string) => {
+    const updatedConversations = conversations.map(conv =>
+      conv.id === id ? { ...conv, title: newTitle } : conv
+    )
+    setConversations(updatedConversations)
+    if (currentConversation && currentConversation.id === id) {
+      setCurrentConversation({ ...currentConversation, title: newTitle })
+    }
+  }
+
+  const deleteConversation = (id: number) => {
+    const updatedConversations = conversations.filter(conv => conv.id !== id)
+    setConversations(updatedConversations)
+    if (currentConversation && currentConversation.id === id) {
+      setCurrentConversation(updatedConversations[0] || null)
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-100 relative">
       <Sidebar 
         conversations={conversations}
-        currentConversation={currentConversation}
+        currentConversation={currentConversation || conversations[0]}
         setCurrentConversation={setCurrentConversation}
         startNewConversation={startNewConversation}
+        renameConversation={renameConversation}
+        deleteConversation={deleteConversation}
         isOpen={sidebarOpen}
       />
       <Button
         variant="outline"
         size="icon"
-        className={`opacity-10 hover:opacity-100 fixed top-4 z-30 transition-all duration-300 ease-in-out ${
+        className={`fixed top-4 z-30 transition-all duration-300 ease-in-out ${
           sidebarOpen ? 'left-[260px]' : 'left-4'
         }`}
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -92,10 +170,9 @@ export default function ChatInterface() {
       <div className={`flex flex-col flex-grow transition-all duration-300 ease-in-out ${
         sidebarOpen ? 'ml-64' : 'ml-0'
       }`}>
-        <ChatArea messages={currentConversation.messages} />
+        <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />
         <InputArea onSendMessage={addMessage} />
       </div>
     </div>
   )
 }
-

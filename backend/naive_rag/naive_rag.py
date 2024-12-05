@@ -25,3 +25,12 @@ class NaiveRAG():
                 documents_str+=f"Document {i}:\n {self.retriever.get_node_by_id(id).text}\n\n"
             answer = self.generator.generate(user_query=user_query,documents_str=documents_str)
             print(answer)
+
+    def process_query(self, user_query: str):
+        results = self.retriever.retrieve(user_query)
+        documents_str = ""
+        for i, id in enumerate(results.ids):
+            documents_str += f"Document {i}:\n {self.retriever.get_node_by_id(id).text}\n\n"
+        answer = self.generator.generate(user_query=user_query, documents_str=documents_str)
+        return answer
+
