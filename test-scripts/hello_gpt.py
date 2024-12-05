@@ -6,6 +6,7 @@ sys.path.append(SYSTEM_PATH)
 
 from openai import OpenAI
 from backend import env
+
 client = OpenAI()
 
 """
