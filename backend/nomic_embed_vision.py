@@ -10,6 +10,16 @@ from gpt4all import Embed4All
 
 MODEL_PATH = "./resources/models/nomic-embed-vision-v1.5"
 
+"""Install and store nomics-embed-vision model
+
+processor = AutoImageProcessor.from_pretrained("nomic-ai/nomic-embed-vision-v1.5")
+vision_model = AutoModel.from_pretrained("nomic-ai/nomic-embed-vision-v1.5", trust_remote_code=True)
+
+processor.save_pretrained("./resources/models/nomic-embed-vision-v1.5")
+vision_model.save_pretrained("./resources/models/nomic-embed-vision-v1.5")
+"""
+
+
 class NomicEmbededVison():
     """
     A class used to embed images using a pre-trained model.
