@@ -24,17 +24,18 @@ class Retriever():
     """
     def __init__(
         self,
-        resource_path:str,
-        embed_model_path:str,
+        resource_path:str='',
+        embed_model_path:str='',
         vector_size: int = 768,
     ):
         self.database_path = os.path.join(resource_path, 'database')
         self.index_path = os.path.join(resource_path, 'index')
         self.embed_model_path = embed_model_path
-        self.embed_model = NomicEmbedQuantized(model_path=embed_model_path)
+        self.embed_model = NomicEmbedQuantized()
         self.vector_size = vector_size
         self.qdrant_local = QdrantLocal(location=":memory:")
         self.collection_name = "default"
+        self._setup()
         
     def _setup(self):
         binary_quantization_config = models.BinaryQuantization(
@@ -59,8 +60,8 @@ class Retriever():
         )
 
     def search(self, query_vector,top_k:int = 8):
-        self.qdrant_local.search(
+        return self.qdrant_local.search(
             collection_name=self.collection_name,
             query_vector=query_vector,
-            
+            limit=top_k,
         )
