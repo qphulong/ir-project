@@ -11,6 +11,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+"""This script test functionality of NomicEmbededVison module"""
 
 url = "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png"
 alt = "Google Logo"
