@@ -2,7 +2,7 @@
 import numpy as np
 import torch.nn.functional as F
 from transformers import AutoModel, AutoImageProcessor
-from PIL import Image
+from PIL import Image, ImageFile
 import requests
 from typing import Any
 from llama_index.core.bridge.pydantic import PrivateAttr
@@ -45,6 +45,12 @@ class NomicEmbededVison():
 
     def embed_image(self, url: str) -> np.ndarray:
         image = Image.open(requests.get(url, stream=True).raw)
+        inputs = self._processor(images=image, return_tensors="pt")
+        outputs = self._model(**inputs)
+        embeddings = F.normalize(outputs.last_hidden_state.mean(dim=1))
+        return embeddings.detach().numpy()[0]
+    
+    def embed_PIL_image(self, image: ImageFile) -> np.ndarray:
         inputs = self._processor(images=image, return_tensors="pt")
         outputs = self._model(**inputs)
         embeddings = F.normalize(outputs.last_hidden_state.mean(dim=1))
