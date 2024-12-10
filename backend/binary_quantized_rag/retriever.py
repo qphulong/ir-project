@@ -34,6 +34,7 @@ class Retriever():
         self.metadata_space = None
         self.image_space = None
         self._setup_text_space()
+        self._setup_image_space()
         
     def _setup_text_space(self):
         """Prepare the text_space collection"""
@@ -80,6 +81,55 @@ class Retriever():
     def _search_text_space(self, query_vector:np.ndarray,top_k:int = 8):
         return self.qdrant_local.search(
             collection_name='text_space',
+            query_vector=query_vector,
+            limit=top_k,
+        )
+    
+    def _setup_image_space(self):
+        """Prepare the image_space collection"""
+        # TODO this code can be optimized
+        self.qdrant_local.create_collection(
+            collection_name='image_space',
+            vectors_config=VectorParams(
+                size=self.vector_size,
+                distance=models.Distance.MANHATTAN,
+                quantization_config= models.BinaryQuantization(
+                    binary=models.BinaryQuantizationConfig(
+                        always_ram=True
+                    )
+                ),
+            ),
+        )
+        self.image_space = self.qdrant_local.collections['image_space']
+        
+        n_embeddings = 0
+        for filename in os.listdir(self.database_path):
+            if filename.endswith('.json'):
+                file_path = os.path.join(self.database_path, filename)
+                
+                # Read the JSON file
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                    
+                    # Check if 'content' key exists in the file
+                    if 'images' in data:
+                        # For each entry in the 'content', extract the embedding
+                        for key, value in data['images'].items():
+                            embedding = base64_to_binary_array(value.get('embedding'))
+                            self.image_space._add_point(
+                                point=PointStruct(
+                                    id = key,
+                                    vector=embedding,
+                                    payload=None
+                                )
+                            )
+                            n_embeddings+=1
+        # shorten and change dtype of vectors
+        self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.uint8)[:n_embeddings]
+
+    def _search_image_space(self, query_vector:np.ndarray,top_k:int = 8):
+        return self.qdrant_local.search(
+            collection_name='image_space',
             query_vector=query_vector,
             limit=top_k,
         )
