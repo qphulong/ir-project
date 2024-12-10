@@ -5,3 +5,4 @@ from .nomic_embed import NomicEmbed, NomicEmbedQuantized
 from .nomic_embed_vision import NomicEmbedVision
 from .naive_rag import Retriever, NaiveRAG, Generator
 from .api import *
+from .utils import *

@@ -37,6 +37,7 @@ def base64_to_binary_array(base64_str: str) -> np.ndarray:
     binary_array = np.array([int(bit) for bit in binary_string], dtype=np.uint8)
     return binary_array
 
+
 def binary_quantized(embedding: np.ndarray) ->np.ndarray:
     """
     Quantizes the input embedding array into binary values (0 or 1) based on a threshold of 0.
