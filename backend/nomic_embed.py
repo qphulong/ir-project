@@ -8,6 +8,15 @@ from gpt4all import Embed4All
 from typing import List
 
 class NomicEmbed(BaseEmbedding):
+    """ Code to download model
+    model_name = "nomic-ai/nomic-embed-text-v1.5"
+    tokenizer = AutoTokenizer.from_pretrained(model_name,trust_remote_code=True)
+    model = AutoModel.from_pretrained(model_name,trust_remote_code=True)
+    save_directory = ".resources/models/nomic-text-embed-v1.5"
+    tokenizer.save_pretrained(save_directory)
+    model.save_pretrained(save_directory)
+    """
+
     """
     Class to embed text to embeddings.
     This class inherited with llama_index BaseEmbedding to
