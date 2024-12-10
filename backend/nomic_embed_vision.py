@@ -20,7 +20,7 @@ vision_model.save_pretrained("./resources/models/nomic-embed-vision-v1.5")
 """
 
 
-class NomicEmbededVison():
+class NomicEmbedVision():
     """
     A class used to embed images using a pre-trained model.
     Attributes
