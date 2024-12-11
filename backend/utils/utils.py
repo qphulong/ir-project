@@ -1,5 +1,6 @@
 import numpy as np
 import base64
+import io
 
 def binary_array_to_base64(arr:np.ndarray) -> str:
     """
@@ -50,4 +51,63 @@ def binary_quantized(embedding: np.ndarray) ->np.ndarray:
     """
     binary_array = (embedding > 0).astype(np.uint8)
     return binary_array
+
+def scalar_quantized(embedding: np.ndarray, quantile: float = 0.99) -> np.ndarray:
+    """
+    WARNING: has not been tested
+    Quantizes a float32 embedding array into int8 using scalar quantization.
+    
+    Parameters:
+        embedding (np.ndarray): The input float32 embedding array.
+        quantile (float): The quantile value to determine the scaling factor (default is 0.99).
+
+    Returns:
+        np.ndarray: The quantized int8 embedding array.
+    """
+    if embedding.dtype != np.float32:
+        raise ValueError("Input embedding must be of type float32.")
+    
+    # Calculate the quantile value for scaling
+    scale = np.quantile(np.abs(embedding), quantile)
+    if scale == 0:
+        raise ValueError("Quantile scale is zero, cannot quantize.")
+
+    # Normalize the embedding by the scale and clip values to int8 range
+    normalized = np.clip(embedding / scale, -1.0, 1.0)
+
+    # Convert normalized values to int8
+    quantized = (normalized * 127).astype(np.int8)
+    
+    return quantized
+
+def base64_to_float32_vector(base64_str: str) -> np.ndarray:
+    """
+    Convert a base64-encoded string to a numpy array of dtype=np.float32.
+
+    Args:
+        base64_str (str): The base64-encoded string representing the array.
+
+    Returns:
+        np.ndarray: A 1D numpy array of dtype=np.float32.
+    """
+    byte_data = base64.b64decode(base64_str)
+    
+    return np.frombuffer(byte_data, dtype=np.float32)
+
+def float32_vector_to_base64(vector: np.ndarray) -> str:
+    """
+    Convert a numpy array of dtype=np.float32 to a base64-encoded string.
+
+    Args:
+        vector (np.ndarray): A 1D numpy array of dtype=np.float32.
+
+    Returns:
+        str: The base64-encoded string representing the array.
+    """
+    if vector.dtype != np.float32:
+        raise ValueError("Input array must have dtype=np.float32")
+    
+    byte_data = vector.tobytes()
+    
+    return base64.b64encode(byte_data).decode('utf-8')
 

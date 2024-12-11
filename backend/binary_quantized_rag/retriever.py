@@ -12,7 +12,7 @@ from llama_index.core.vector_stores import VectorStoreQuery, VectorStoreQueryRes
 from qdrant_client.local.qdrant_local import QdrantLocal
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.models.models import PointStruct, VectorParams
-from ..utils import base64_to_binary_array
+from ..utils import *
 import numpy as np
 
 class Retriever():
@@ -24,7 +24,7 @@ class Retriever():
     """
     def __init__(
         self,
-        database_path:str='./resource/quantized-db',
+        database_path:str='./resources/quantized-db',
         vector_size: int = 768,
     ):
         self.database_path = database_path
@@ -33,8 +33,7 @@ class Retriever():
         self.text_space = None
         self.metadata_space = None
         self.image_space = None
-        self._setup_text_space()
-        self._setup_image_space()
+        self._setup()
         
     def _setup_text_space(self):
         """Prepare the text_space collection"""
@@ -92,12 +91,7 @@ class Retriever():
             collection_name='image_space',
             vectors_config=VectorParams(
                 size=self.vector_size,
-                distance=models.Distance.MANHATTAN,
-                quantization_config= models.BinaryQuantization(
-                    binary=models.BinaryQuantizationConfig(
-                        always_ram=True
-                    )
-                ),
+                distance=models.Distance.COSINE,
             ),
         )
         self.image_space = self.qdrant_local.collections['image_space']
@@ -115,7 +109,7 @@ class Retriever():
                     if 'images' in data:
                         # For each entry in the 'content', extract the embedding
                         for key, value in data['images'].items():
-                            embedding = base64_to_binary_array(value.get('embedding'))
+                            embedding = base64_to_float32_vector(value.get('embedding'))
                             self.image_space._add_point(
                                 point=PointStruct(
                                     id = key,
@@ -125,7 +119,7 @@ class Retriever():
                             )
                             n_embeddings+=1
         # shorten and change dtype of vectors
-        self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.uint8)[:n_embeddings]
+        self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.float32)[:n_embeddings]
 
     def _search_image_space(self, query_vector:np.ndarray,top_k:int = 8):
         return self.qdrant_local.search(
@@ -133,56 +127,57 @@ class Retriever():
             query_vector=query_vector,
             limit=top_k,
         )
-
-    def _setup(self):
-        binary_quantization_config = models.BinaryQuantization(
-            binary=models.BinaryQuantizationConfig(
-                always_ram=True
-            )
-        )
-
-        self.qdrant_local.create_collection(
-            collection_name='text_space',
-            vectors_config=VectorParams(
-                size=self.vector_size,
-                distance=models.Distance.MANHATTAN,
-                quantization_config=binary_quantization_config,
-            ),
-        )
-        self.text_space = self.qdrant_local.collections['text_space']
-
+    
+    def _setup_metadata_space(self):
+        """Prepare the metadata_space collection"""
+        # TODO this code can be optimized
         self.qdrant_local.create_collection(
             collection_name='metadata_space',
             vectors_config=VectorParams(
                 size=self.vector_size,
                 distance=models.Distance.MANHATTAN,
-                quantization_config=binary_quantization_config,
+                quantization_config= models.BinaryQuantization(
+                    binary=models.BinaryQuantizationConfig(
+                        always_ram=True
+                    )
+                ),
             ),
         )
         self.metadata_space = self.qdrant_local.collections['metadata_space']
+        
+        n_embeddings = 0
+        for filename in os.listdir(self.database_path):
+            if filename.endswith('.json'):
+                file_path = os.path.join(self.database_path, filename)
+                
+                # Read the JSON file
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                    
+                    # Check if 'content' key exists in the file
+                    if 'id' in data:
+                        # For each entry in the 'content', extract the embedding
+                        dynamic_id = data['id']
+                        embedding = base64_to_binary_array(data['metadata'][dynamic_id]['embedding'])
+                        self.metadata_space._add_point(
+                            point=PointStruct(
+                                id = dynamic_id,
+                                vector=embedding,
+                                payload=None
+                            )
+                        )
+                        n_embeddings+=1
+        # shorten and change dtype of vectors
+        self.metadata_space.vectors[''] = self.metadata_space.vectors[''].astype(np.uint8)[:n_embeddings]
 
-        self.qdrant_local.create_collection(
-            collection_name='image_space',
-            vectors_config=VectorParams(
-                size=self.vector_size,
-                distance=models.Distance.MANHATTAN,
-                quantization_config=binary_quantization_config,
-            ),
-        )
-        self.image_space = self.qdrant_local.collections['image_space']
-
-
-
-    def insert_points(self, points: Iterable[PointStruct]):
-        self.qdrant_local.upload_points(
-            collection_name=self.collection_name,
-            points=points
-        )
-
-    def search(self, query_vector,top_k:int = 8):
+    def _search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8):
         return self.qdrant_local.search(
-            collection_name=self.collection_name,
+            collection_name='metadata_space',
             query_vector=query_vector,
             limit=top_k,
         )
-    
+
+    def _setup(self):
+        self._setup_text_space()
+        self._setup_image_space()
+        self._setup_metadata_space()
