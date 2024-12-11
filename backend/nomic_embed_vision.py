@@ -20,7 +20,7 @@ vision_model.save_pretrained("./resources/models/nomic-embed-vision-v1.5")
 """
 
 
-class NomicEmbededVison():
+class NomicEmbedVision():
     """
     A class used to embed images using a pre-trained model.
     Attributes
@@ -43,12 +43,12 @@ class NomicEmbededVison():
         self._processor = AutoImageProcessor.from_pretrained(processor_path)
         self._model = AutoModel.from_pretrained(model_path, trust_remote_code=True)
 
-    def embed_image(self, url: str) -> np.ndarray:
+    def embed_image(self, url: str) -> np.ndarray: 
         image = Image.open(requests.get(url, stream=True).raw)
-        inputs = self._processor(images=image, return_tensors="pt")
-        outputs = self._model(**inputs)
-        embeddings = F.normalize(outputs.last_hidden_state.mean(dim=1))
-        return embeddings.detach().numpy()[0]
+        inputs = self._processor(image, return_tensors="pt")
+        img_emb = self._model(**inputs).last_hidden_state
+        img_embeddings = F.normalize(img_emb[:, 0], p=2, dim=1)
+        return img_embeddings.detach().numpy()
     
     def embed_PIL_image(self, image: ImageFile) -> np.ndarray:
         inputs = self._processor(images=image, return_tensors="pt")
