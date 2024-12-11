@@ -11,7 +11,7 @@ from qdrant_client import QdrantClient, models
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.core.vector_stores import VectorStoreQuery, VectorStoreQueryResult
 from llama_index.core import VectorStoreIndex
-from backend import NomicEmbed, NomicEmbedQuantized
+from backend import NomicEmbed, NomicEmbedQuantized, NomicEmbedVision
 import qdrant_client
 from llama_index.core import Document, VectorStoreIndex, StorageContext
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -20,19 +20,31 @@ from qdrant_client.http.models.models import PointStruct, VectorParams, PointVec
 from memory_profiler import profile
 from backend.binary_quantized_rag.retriever import Retriever
 from backend.utils import binary_array_to_base64
-
+from qdrant_client.local.qdrant_local import QdrantLocal
 import sys
+from backend.utils import *
 
-retriever = Retriever(database_path='./resources/quantized-db')
-embed_model = NomicEmbedQuantized()
+import torch
+import requests
+from PIL import Image
+from transformers import AutoTokenizer, AutoModel, AutoImageProcessor
+import torch.nn.functional as F
+import numpy as np
+
+"""
+Script to test retriever of quantized rag
+_search_text_space
+_search_metadata_space
+_search_image_space (quantization not available)
+"""
+
+text_embed_model = NomicEmbed()
+retriever = Retriever('./resources/quantized-db')
 
 while(1):
-    query_embedding = embed_model.get_query_embedding(input("User query: "))
-    # query_embedding = np.array(query_embedding) > 0
-    # query_embedding = query_embedding.astype(np.uint8)
-    pprint(retriever._search_image_space(
-        query_vector=query_embedding
-        )
+    query = input("Query: ")
+    query_embedding = text_embed_model._get_text_embedding(query)
+    query_embedding = binary_quantized(query_embedding)
+    pprint(
+        retriever._search_metadata_space(query_embedding)
     )
-
-
