@@ -26,7 +26,7 @@ class NomicEmbed(BaseEmbedding):
     _embed_model:SentenceTransformer = PrivateAttr()
     _precision: str = PrivateAttr()
     _convert_to_numpy: bool = PrivateAttr()
-    def __init__(self,model_path:str='./resources/models/nomic-text-embed-v1.5',**kwargs:Any):
+    def __init__(self,model_path:str='./resources/models/nomic-embed-text-v1.5',**kwargs:Any):
         super().__init__(**kwargs)
         self._embed_model =  SentenceTransformer(
             model_name_or_path=model_path,
