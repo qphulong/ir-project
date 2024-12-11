@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from time import sleep
 from fake_useragent import UserAgent
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -9,6 +8,7 @@ import requests
 import json
 import os
 from typing import List, Optional, Dict, Any,  Optional
+from datetime import datetime
 
 num_of_no_id_post = 1
 
@@ -72,6 +72,10 @@ class CNNCrawler:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
+    def format_date(self, iso_date: str) -> str:
+        datetime_obj = datetime.strptime(iso_date, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return datetime_obj.strftime("%d/%m/%Y")
+
     def scrape_post(self, url: str, current_depth: int = 0) -> None:
         if url in self.visited_links:
            print(f"visited{url}")
@@ -108,22 +112,40 @@ class CNNCrawler:
 
         soup = BeautifulSoup(page_source, 'html.parser')
 
-        post_data: Dict[str, Any] = {
+        stellar_id = self.extract_page_stellar_id(soup)
+
+        id = "cnn_" + stellar_id 
+
+        publish_date = self.extract_meta_content(soup, 'article:published_time')
+
+        last_update_date = self.extract_meta_content(soup, 'article:modified_time')
+
+        metadata: Dict[str, Any] = {
             "url": url,
             "pageStellarId": self.extract_page_stellar_id(soup),
-            "title": self.extract_title(soup),
-            "author_profile": self.extract_author_profile(soup),
-            "publish_date": self.extract_meta_content(soup, 'article:published_time'),
-            "last_update_date": self.extract_meta_content(soup, 'article:modified_time'),
-            "content": self.extract_srt(soup) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup),
-            "images": self.extract_images(soup),
+            "author": self.extract_author_profile(soup),
+            id:  {
+                "title": self.extract_title(soup),
+                "publish_date": self.format_date(publish_date),
+                "last_update_date": self.format_date(last_update_date),
+                "embeđing": ""
+            }
+        }
+
+        content_key = "script" if "/videos/" in url or "/video/" in url else "content"
+
+        post_data: Dict[str, Any] = {
+            "id": id,
+            "metadata": metadata,
+            content_key: self.extract_srt(soup) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup, id),
+            "images": self.extract_images(soup, id),
         }
 
         if post_data.get('pageStellarId', 'default') == None:
             filename = f"None_{num_of_no_id_post}.json"
             num_of_no_id_post += 1
         else:
-            filename = f"{post_data.get('pageStellarId', 'default')}.json"
+            filename = f"{post_data.get('id', 'default')}.json"
         self.save_post_data_to_json(post_data, filename)
 
         self.visited_links.add(url)
@@ -177,8 +199,8 @@ class CNNCrawler:
         meta_tag = soup.find('meta', {'property': property_name})
         return meta_tag['content'] if meta_tag else None
 
-    def extract_article_paragraphs(self, soup: BeautifulSoup) -> List[str]:
-        paragraphs = []
+    def extract_article_paragraphs(self, soup: BeautifulSoup, ID: str) -> List[str]:
+        paragraphs: Dict[str, Any] = {}
         paragraph_tags = soup.find_all('p', class_='paragraph inline-placeholder vossi-paragraph')
         if not paragraph_tags:
             paragraph_tags = soup.find_all('p', class_='paragraph inline-placeholder vossi-paragraph-primary-core-light')
@@ -186,24 +208,31 @@ class CNNCrawler:
             fallback_div = soup.find('div', class_='video-resource__description')
             if fallback_div:
                 paragraph_tags = fallback_div.find_all('p')  
-        for p_tag in paragraph_tags:
+        for i, p_tag in enumerate(paragraph_tags, start=1):
             text = p_tag.get_text(strip=True)
-            if text:  
-                paragraphs.append(text)
-        return "\n".join(paragraphs)
+            if text:
+                paragraph: Dict[str, Any] = {
+                    "content": text,
+                    "embeđing": ""
+                }
+                key = f"{ID}_text_{i}"
+                paragraphs[key] = paragraph
+        return paragraphs
 
-    def extract_images(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
-        images_info = []
+    def extract_images(self, soup: BeautifulSoup, ID:str) -> List[Dict[str, str]]:
+        images_infos : Dict[str, Any] = {}
         img_tags = soup.find_all('img')
-        for img_tag in img_tags:
+        for i,img_tag in enumerate(img_tags, start=1):
             image_url = img_tag.get('src')
             image_alt = img_tag.get('alt')
             if image_url and image_alt:
-                images_info.append({
-                    "image_url": image_url,
+                images_info : Dict[str, Any] = {
+                    "image_url":image_url,
                     "image_alt": image_alt
-                })
-        return images_info
+                }
+                key = f"{ID}_image_{i}"
+                images_infos[key] = images_info
+        return images_infos
     
     def extract_srt(self, soup: BeautifulSoup) -> Optional[str]:
         script_tag = soup.find('script', type='application/ld+json')
@@ -391,9 +420,10 @@ if __name__ == "__main__":
             crawler.scrape_post(link)
     '''
 
-    '''
+
     crawler = CNNCrawler()
     crawler.scrape_post("https://edition.cnn.com/2024/12/03/asia/south-korea-martial-law-explainer-intl-hnk/index.html")
+
     '''
     keyword = input("Enter the search keyword: ")
     size = int(input("Enter the number of results per page: "))
@@ -406,6 +436,7 @@ if __name__ == "__main__":
 
     for link in links:
         crawler.scrape_post(link)
+        '''
 
     
     
