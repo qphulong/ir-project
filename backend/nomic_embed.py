@@ -59,12 +59,13 @@ class NomicEmbed(BaseEmbedding):
         return text_embeddings
 
     def _get_text_embedding(self, text:str) -> np.ndarray:
-        text = 'search_document: ' + text
         encoded_input = self._tokenizer([text], padding=True, truncation=True, return_tensors='pt')
+        matryoshka_dim = 768
         with torch.no_grad():
             model_output = self._text_model(**encoded_input)
         text_embeddings = self.mean_pooling(model_output, encoded_input['attention_mask'])
         text_embeddings = F.layer_norm(text_embeddings, normalized_shape=(text_embeddings.shape[1],))
+        text_embeddings = text_embeddings[:, :matryoshka_dim]
         text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
         text_embeddings = text_embeddings.detach().numpy()
         text_embeddings = text_embeddings[0]
@@ -75,6 +76,7 @@ class NomicEmbed(BaseEmbedding):
         return embeddings
     
     def _get_query_embedding(self, query: str)-> np.ndarray:
+        """dont use"""
         query = 'search_query: ' + query
         encoded_input = self._tokenizer([query], padding=True, truncation=True, return_tensors='pt')
         with torch.no_grad():

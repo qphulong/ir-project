@@ -78,6 +78,13 @@ class Retriever():
         self.text_space.vectors[''] = self.text_space.vectors[''].astype(np.uint8)[:n_embeddings]
                         
     def _search_text_space(self, query_vector:np.ndarray,top_k:int = 8):
+        """
+        Example usage:
+        query = input('User: ')
+        query_embedding = embed_model._get_text_embedding(query)
+        query_embedding = binary_quantized(query_embedding)
+        _search_text_space(query_embedding)
+        """
         return self.qdrant_local.search(
             collection_name='text_space',
             query_vector=query_vector,
@@ -122,6 +129,12 @@ class Retriever():
         self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.float32)[:n_embeddings]
 
     def _search_image_space(self, query_vector:np.ndarray,top_k:int = 8):
+        """
+        Example usage:
+        query = input("Query: ")
+        query_embedding = text_embed_model._get_embeddings_for_image_query(query)
+        _search_image_space(query_embedding)
+        """
         return self.qdrant_local.search(
             collection_name='image_space',
             query_vector=query_vector,
