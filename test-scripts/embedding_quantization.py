@@ -38,16 +38,23 @@ _search_metadata_space
 _search_image_space (quantization not available)
 """
 
-# # Test 1
-# text_embed_model = NomicEmbed()
-# retriever = Retriever('./resources/quantized-db')
+# Test 1
+text_embed_model = NomicEmbed()
+retriever = Retriever('./resources/CNN')
 
+while(1):
+    query = input("Query: ")
+    query_embedding = text_embed_model._get_embeddings_for_image_query(query)
+    # query_embedding = binary_quantized(query_embedding)
+    pprint(
+        retriever._search_image_space(query_embedding)
+    )
 # while(1):
 #     query = input("Query: ")
 #     query_embedding = text_embed_model._get_text_embedding(query)
 #     query_embedding = binary_quantized(query_embedding)
 #     pprint(
-#         retriever._search_metadata_space(query_embedding)
+#         retriever._search_text_space(query_embedding)
 #     )
 
 
