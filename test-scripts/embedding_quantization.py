@@ -47,7 +47,7 @@ while(1):
     query_embedding = text_embed_model._get_embeddings_for_image_query(query)
     # query_embedding = binary_quantized(query_embedding)
     pprint(
-        retriever._search_image_space(query_embedding)
+        retriever.search_image_space(query_embedding)
     )
 # while(1):
 #     query = input("Query: ")
