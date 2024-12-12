@@ -107,8 +107,11 @@ class CNNCrawler:
             os.makedirs(self.output_dir)
 
     def format_date(self, iso_date: str) -> str:
-        datetime_obj = datetime.strptime(iso_date, "%Y-%m-%dT%H:%M:%S.%fZ")
-        return datetime_obj.strftime("%d/%m/%Y")
+        try:
+            datetime_obj = datetime.strptime(iso_date, "%Y-%m-%dT%H:%M:%S.%fZ")
+            return datetime_obj.strftime("%d/%m/%Y")
+        except ValueError:
+            return iso_date
     
     def get_embed_text(self, text: str) ->str:
         embedding = self.text_embed_model.get_text_embedding(text)
@@ -186,7 +189,7 @@ class CNNCrawler:
         post_data: Dict[str, Any] = {
             "id": id,
             "metadata": metadata,
-            content_key: self.extract_srt(soup) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup, id),
+            content_key: self.extract_srt(soup, id) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup, id),
             "images": self.extract_images(soup, id),
         }
 
@@ -262,7 +265,7 @@ class CNNCrawler:
             if text:
                 paragraph: Dict[str, Any] = {
                     "content": text,
-                    "embeđding": self.get_embed_text(text)
+                    "embedding": self.get_embed_text(text)
                 }
                 key = f"{ID}_text_{i}"
                 paragraphs[key] = paragraph
@@ -284,7 +287,7 @@ class CNNCrawler:
                 images_infos[key] = images_info
         return images_infos
     
-    def extract_srt(self, soup: BeautifulSoup) -> Optional[str]:
+    def extract_srt(self, soup: BeautifulSoup, ID: str) -> Optional[dict]:
         script_tag = soup.find('script', type='application/ld+json')
         if script_tag:
             try:
@@ -298,14 +301,14 @@ class CNNCrawler:
                                 if caption.get("encodingFormat") == "srt":
                                     url = caption.get("url")
                                     subtitle = self.get_text_from_srt(url)
-                                    return subtitle
+                                    return {f"{ID}_script": subtitle, "embedding": self.get_embed_text(subtitle)}
                 elif isinstance(data, dict):
                     captions = data.get("caption", [])
                     for caption in captions:
                         if caption.get("encodingFormat") == "srt":
                             url = caption.get("url")
                             subtitle = self.get_text_from_srt(url)
-                            return subtitle
+                            return {f"{ID}_script": subtitle, "embedding": self.get_embed_text(subtitle)}
             except json.JSONDecodeError:
                 return None
         return None
@@ -329,7 +332,7 @@ class CNNCrawler:
         self.create_folder()
         file_path = os.path.join(self.output_dir, filename)
         with open(file_path, 'w', encoding='utf-8') as json_file:
-            json.dump(post_data, json_file, ensure_ascii=False, indent=4)
+            json.dump(post_data, json_file, ensure_ascii=True, indent=4)
 
 '''
 class CNNLinkGetter:
@@ -447,45 +450,5 @@ class CNNSearcher:
             return result_links
         finally:
             driver.quit()
-
-
-if __name__ == "__main__":
-    '''
-    base_url = "https://edition.cnn.com/"
-
-    subnav_links = get_subnav_links(base_url)
-
-    filtered_links = [link for link in subnav_links if "about" not in link]
-
-    filtered_links.append(base_url)
-
-    links = []
-
-    crawler = CNNCrawler()
-
-    for link in filtered_links:
-        CNN = CNNLinkGetter(link)
-        links = CNN.get_CNN_post_links(limit=10000000000)
-        for link in links:
-            crawler.scrape_post(link)
-    '''
-
-    '''
-    crawler = CNNCrawler()
-    crawler.scrape_post("https://edition.cnn.com/2024/12/03/asia/south-korea-martial-law-explainer-intl-hnk/index.html")
-
-    '''
-    keyword = input("Enter the search keyword: ")
-    size = int(input("Enter the number of results per page: "))
-
-    searcher = CNNSearcher()
-
-    links = searcher.search(keyword=keyword, size=size, page=1, sort="newest")
-
-    crawler = CNNCrawler()
-
-    for link in links:
-        crawler.scrape_post(link)
-
     
     
