@@ -7,8 +7,15 @@ from selenium.webdriver.support import expected_conditions as EC
 import requests
 import json
 import os
+import sys
 from typing import List, Optional, Dict, Any,  Optional
 from datetime import datetime
+from dotenv import load_dotenv
+SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(dotenv_path=f"{SYSTEM_PATH}/backend/.env")
+sys.path.append(SYSTEM_PATH)
+from backend.utils import *
+from backend import NomicEmbedVision, NomicEmbed
 
 num_of_no_id_post = 1
 
@@ -56,6 +63,8 @@ class CNNCrawler:
         self.user_agent = UserAgent()
         self.visited_links_file = visited_links_file
         self.visited_links = self.load_visited_links()
+        self.text_embed_model = NomicEmbed()
+        self.vision_embed_model = NomicEmbedVision()
         self.max_depth = max_depth
 
     def load_visited_links(self) -> set:
@@ -75,6 +84,16 @@ class CNNCrawler:
     def format_date(self, iso_date: str) -> str:
         datetime_obj = datetime.strptime(iso_date, "%Y-%m-%dT%H:%M:%S.%fZ")
         return datetime_obj.strftime("%d/%m/%Y")
+    
+    def get_embed_text(self, text: str) ->str:
+        embedding = self.text_embed_model._get_query_embedding(text)
+        embedding = binary_quantized(embedding)
+        return binary_array_to_base64(embedding)
+    
+    def get_embed_img(self, img_url:str)->str:
+        img_embedding = self.vision_embed_model.embed_image(img_url)
+        return float32_vector_to_base64(img_embedding)
+
 
     def scrape_post(self, url: str, current_depth: int = 0) -> None:
         if url in self.visited_links:
@@ -128,9 +147,16 @@ class CNNCrawler:
                 "title": self.extract_title(soup),
                 "publish_date": self.format_date(publish_date),
                 "last_update_date": self.format_date(last_update_date),
-                "embeđing": ""
             }
         }
+
+        embedding =""
+        for key, value in metadata[id].items():
+            embedding += f"{key}: {value}\n"
+
+        print(embedding)
+
+        metadata[id]["embedding"] = self.get_embed_text(embedding)
 
         content_key = "script" if "/videos/" in url or "/video/" in url else "content"
 
@@ -213,7 +239,7 @@ class CNNCrawler:
             if text:
                 paragraph: Dict[str, Any] = {
                     "content": text,
-                    "embeđing": ""
+                    "embeđding": self.get_embed_text(text)
                 }
                 key = f"{ID}_text_{i}"
                 paragraphs[key] = paragraph
@@ -225,10 +251,11 @@ class CNNCrawler:
         for i,img_tag in enumerate(img_tags, start=1):
             image_url = img_tag.get('src')
             image_alt = img_tag.get('alt')
-            if image_url and image_alt:
+            if image_url and image_alt and "http" in image_url:
                 images_info : Dict[str, Any] = {
                     "image_url":image_url,
-                    "image_alt": image_alt
+                    "image_alt": image_alt,
+                    "embedding" : self.get_embed_img(image_url)
                 }
                 key = f"{ID}_image_{i}"
                 images_infos[key] = images_info
@@ -420,7 +447,7 @@ if __name__ == "__main__":
             crawler.scrape_post(link)
     '''
 
-
+    '''
     crawler = CNNCrawler()
     crawler.scrape_post("https://edition.cnn.com/2024/12/03/asia/south-korea-martial-law-explainer-intl-hnk/index.html")
 
@@ -436,7 +463,6 @@ if __name__ == "__main__":
 
     for link in links:
         crawler.scrape_post(link)
-        '''
 
     
     
