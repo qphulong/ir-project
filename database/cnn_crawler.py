@@ -31,31 +31,56 @@ class CNNCrawler:
         max_depth (int): The maximum depth to crawl for related articles.
 
     Methods:
-        create_folder():
-            Creates the output directory if it doesn't exist.
-        
-        scrape_post(url: str):
-            Scrapes data from a given CNN article URL and saves it to a JSON file.
+        load_visited_links() -> set:
+            Loads previously visited links from the visited links file.
+
+        save_visited_links() -> None:
+            Saves the current set of visited links to the visited links file.
+
+        create_folder() -> None:
+            Ensures the output directory exists.
+
+        format_date(iso_date: str) -> str:
+            Converts ISO date strings to a human-readable format (DD/MM/YYYY).
+
+        get_embed_text(text: str) -> str:
+            Generates a binary quantized embedding for the given text and encodes it as Base64.
+
+        get_embed_img(img_url: str) -> str:
+            Generates an embedding for an image given its URL and encodes it as Base64.
+
+        scrape_post(url: str, current_depth: int = 0) -> None:
+            Scrapes an article from CNN, extracts metadata, content, and embeddings, 
+            and saves the data to a JSON file.
+
+        scrape_related_links(soup: BeautifulSoup, current_depth: int) -> None:
+            Extracts and recursively scrapes related article links from a given page.
 
         extract_page_stellar_id(soup: BeautifulSoup) -> Optional[str]:
             Extracts the unique pageStellarId from the article's script tags.
 
         extract_title(soup: BeautifulSoup) -> Optional[str]:
-            Extracts the title of the article.
+            Extracts the article's title from the HTML.
 
         extract_author_profile(soup: BeautifulSoup) -> Optional[str]:
-            Extracts the link to the author's profile from the byline.
+            Extracts the author's profile link or name from the article.
 
         extract_meta_content(soup: BeautifulSoup, property_name: str) -> Optional[str]:
-            Extracts metadata content, such as publication or last update time.
+            Extracts metadata content such as publication or update time.
 
-        extract_article_body(soup: BeautifulSoup) -> Optional[str]:
-            Extracts the main content or body of the article.
+        extract_article_paragraphs(soup: BeautifulSoup, ID: str) -> List[Dict[str, Any]]:
+            Extracts paragraphs from the article body and generates embeddings for each.
 
-        extract_images(soup: BeautifulSoup) -> List[Dict[str, str]]:
-            Extracts information about images in the article, including URLs and alt text.
+        extract_images(soup: BeautifulSoup, ID: str) -> List[Dict[str, str]]:
+            Extracts image URLs, alt text, and generates embeddings for each image.
 
-        save_post_data_to_json(post_data: Dict[str, Any], filename: str):
+        extract_srt(soup: BeautifulSoup) -> Optional[str]:
+            Extracts and returns subtitles in SRT format if available in the article.
+
+        get_text_from_srt(url: str) -> str:
+            Downloads and parses SRT files from the given URL into plain text.
+
+        save_post_data_to_json(post_data: Dict[str, Any], filename: str) -> None:
             Saves the scraped article data to a JSON file in the output directory.
     """
     def __init__(self, output_dir: str = "database/CNN", visited_links_file="visited_links.json", max_depth=10):
@@ -86,7 +111,7 @@ class CNNCrawler:
         return datetime_obj.strftime("%d/%m/%Y")
     
     def get_embed_text(self, text: str) ->str:
-        embedding = self.text_embed_model._get_query_embedding(text)
+        embedding = self.text_embed_model.get_text_embedding(text)
         embedding = binary_quantized(embedding)
         return binary_array_to_base64(embedding)
     
@@ -153,8 +178,6 @@ class CNNCrawler:
         embedding =""
         for key, value in metadata[id].items():
             embedding += f"{key}: {value}\n"
-
-        print(embedding)
 
         metadata[id]["embedding"] = self.get_embed_text(embedding)
 
