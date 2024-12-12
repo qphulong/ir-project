@@ -205,12 +205,13 @@ class Retriever():
         # shorten and change dtype of vectors
         self.metadata_space.vectors[''] = self.metadata_space.vectors[''].astype(np.uint8)[:n_embeddings]
 
-    def _search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8):
-        return self.qdrant_local.search(
+    def search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8)->List[str]:
+        results =  self.qdrant_local.search(
             collection_name='metadata_space',
             query_vector=query_vector,
             limit=top_k,
         )
+        return self._get_metadatas_base_on_search_results(results)
     
     def _get_metadatas_base_on_search_results(self,results:List[ScoredPoint])->List[str]:
         metadatas = []
@@ -226,8 +227,9 @@ class Retriever():
 
                 # Retrieve the image URL from the JSON structure
                 metadata = data['metadata'][post_id]
-                
-        return
+                metadata_str = "\n".join(f"{key}: {value}" for key, value in metadata.items() if key != 'embedding')
+                metadatas.append(metadata_str)
+        return metadata
 
     def _setup(self):
         self._setup_text_space()
