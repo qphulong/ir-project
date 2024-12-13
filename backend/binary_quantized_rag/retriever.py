@@ -229,7 +229,7 @@ class Retriever():
                 metadata = data['metadata'][post_id]
                 metadata_str = "\n".join(f"{key}: {value}" for key, value in metadata.items() if key != 'embedding')
                 metadatas.append(metadata_str)
-        return metadata
+        return metadatas
 
     def _setup(self):
         self._setup_text_space()

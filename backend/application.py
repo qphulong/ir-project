@@ -24,7 +24,7 @@ class Application():
     def begin(self):
         while(1):
             query = input("Query: ")
-            if query == '\exit':
+            if query == '/exit':
                 return
             query_embedding = self.text_embed_model._get_embeddings_for_image_query(query)
             query_embedding = binary_quantized(query_embedding)
