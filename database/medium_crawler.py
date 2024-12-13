@@ -3,7 +3,7 @@ import json
 import sys
 import re
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from bs4 import BeautifulSoup
 from datetime import datetime
 from dotenv import load_dotenv
@@ -61,7 +61,7 @@ class MediumScraper:
         if not os.path.exists("database/Medium"):
             os.makedirs("database/Medium")
 
-    def scrape_and_save_articles(self, keyword: str, k: int = 10):
+    def scrape_and_save_top_k_articles(self, keyword: str, k: int = 10):
         try:
             article_ids = self.search_posts(query=keyword, k=k)
 
@@ -69,6 +69,14 @@ class MediumScraper:
                 print(f"Processing article {i}/{k} (ID: {article_id})")
                 article_details = self.fetch_article_details(article_id)
                 self.save_article_to_file(article_details, "medium_" + article_id)
+
+        except Exception as e:
+            print(f"Error during scraping and saving articles: {e}")
+
+    def scrape_and_save_articles(self, article_id:str):
+        try:
+            article_details = self.fetch_article_details(article_id)
+            self.save_article_to_file(article_details, "medium_" + article_id)
 
         except Exception as e:
             print(f"Error during scraping and saving articles: {e}")
@@ -116,19 +124,22 @@ class MediumScraper:
                 if isinstance(data, dict):  # Ensure the data is a dictionary
                     id = "medium_" + article_id
                     title = data.get("title", "No Title Available")
-                    author = data.get("author", "Unknown Author")
                     published_date = data.get("published_at", "Unknown Date")
                     published_date = datetime.strptime(published_date, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
                     last_modified_date  = data.get("last_modified_at", "Unknown Date")
                     last_modified_date = datetime.strptime(last_modified_date, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
                     url = data.get("url", "No URL Available")
+                    tags = data.get("tags", "No tag available")
+                    soup = self.fetch_article_html(article_id)
+                    author = self.extract_author_name(soup)
 
                     metadata : Dict[str, Any] = {
                         "url": url,
                         "pageId": article_id,
-                        "author": author,
                         id: {
                             "title": title,
+                            "keyword": tags,
+                            "author": author,
                             "published_date": published_date,
                             "last_update_date": last_modified_date,
                         }
@@ -139,8 +150,6 @@ class MediumScraper:
                         embedding += f"{key}: {value}\n"
             
                     metadata[id]["embedding"] = self.get_embed_text(embedding)
-
-                    soup = self.fetch_article_html(article_id)
 
                     post_data : Dict[str, Any] = {
                         "id": id,
@@ -201,6 +210,15 @@ class MediumScraper:
 
         return result
     
+    def extract_author_name(self, html: str) -> Optional[str]:
+        soup = BeautifulSoup(html, 'html.parser')
+        author_meta = soup.find('meta', attrs={'name': 'author'})
+
+        if author_meta and 'content' in author_meta.attrs:
+            return author_meta['content']
+    
+        return None
+    
     def fetch_article_images(self, html:str, ID) -> Dict:
         images: Dict[str, Any] = {}
 
@@ -230,19 +248,3 @@ class MediumScraper:
             json.dump(article_details, file, ensure_ascii=True, indent=4)
 
 
-if __name__ == "__main__":
-    API_KEY = "a1256ae1c0mshc4ff25bf27c7166p1c624cjsn0d32e0d704d1"
-    scraper = MediumScraper(api_key=API_KEY)
-
-    query = input("Enter search query (keyword): ")
-    top_k = int(input("Enter the number of top articles to fetch: "))
-
-    try:
-        article_ids = scraper.search_posts(query=query, k=top_k)
-
-        for i, article_id in enumerate(article_ids, start=1):
-            article_details = scraper.fetch_article_details(article_id)
-            scraper.save_article_to_file(article_details, "medium_" + article_id)
-
-    except Exception as e:
-        print("Error:", e)
