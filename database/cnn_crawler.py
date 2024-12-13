@@ -161,7 +161,7 @@ class CNNCrawler:
 
         stellar_id = self.extract_page_stellar_id(soup)
 
-        id = "cnn_" + stellar_id 
+        id = "cnn_" + stellar_id if stellar_id else "None"
 
         publish_date = self.extract_meta_content(soup, 'article:published_time')
 
@@ -170,9 +170,10 @@ class CNNCrawler:
         metadata: Dict[str, Any] = {
             "url": url,
             "pageStellarId": self.extract_page_stellar_id(soup),
-            "author": self.extract_author_profile(soup),
+            "author_url": self.extract_author_profile_link(soup),
             id:  {
                 "title": self.extract_title(soup),
+                "author": self.extract_author_name(soup),
                 "publish_date": self.format_date(publish_date),
                 "last_update_date": self.format_date(last_update_date),
             }
@@ -190,7 +191,7 @@ class CNNCrawler:
             "id": id,
             "metadata": metadata,
             content_key: self.extract_srt(soup, id) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup, id),
-            "images": self.extract_images(soup, id),
+            "images": self.extract_images(soup, id) if not "/videos/" in url and not "/video/" in url else None,
         }
 
         if post_data.get('pageStellarId', 'default') == None:
@@ -235,17 +236,19 @@ class CNNCrawler:
         title_tag = soup.find('title')
         return title_tag.get_text(strip=True) if title_tag else None
 
-    def extract_author_profile(self, soup: BeautifulSoup) -> Optional[str]:
+    def extract_author_profile_link(self, soup: BeautifulSoup) -> Optional[str]:
         author_link_tag = soup.find('a', class_='byline__link')
         if author_link_tag:
-            return author_link_tag['href'] 
+            return author_link_tag['href']
+        return None
 
+    def extract_author_name(self, soup: BeautifulSoup) -> Optional[str]:
         byline_names_div = soup.find('div', class_='byline__names')
         if byline_names_div:
             name_span = byline_names_div.find('span', class_='byline__name')
             if name_span:
                 return name_span.get_text(strip=True)
-        
+        return None
 
     def extract_meta_content(self, soup: BeautifulSoup, property_name: str) -> Optional[str]:
         meta_tag = soup.find('meta', {'property': property_name})
@@ -273,8 +276,10 @@ class CNNCrawler:
 
     def extract_images(self, soup: BeautifulSoup, ID:str) -> List[Dict[str, str]]:
         images_infos : Dict[str, Any] = {}
-        img_tags = soup.find_all('img')
+        img_tags = soup.find_all('img', class_='image__dam-img')
         for i,img_tag in enumerate(img_tags, start=1):
+            if img_tag.find_parent(class_='related-content') or img_tag.find_parent(class_='video-resource__image') or img_tag.find_parent(class_='container__item-media') or img_tag.find_parent(class_='image__related-content'):
+                continue
             image_url = img_tag.get('src')
             image_alt = img_tag.get('alt')
             if image_url and image_alt and "http" in image_url:
@@ -444,7 +449,7 @@ class CNNSearcher:
                 href = element.get_attribute("href")
                 if href:
                     full_url = href if href.startswith("http") else f"https://edition.cnn.com{href}"
-                    if full_url not in result_links:
+                    if full_url not in result_links and "/live-news/" not in full_url:
                         result_links.append(full_url)
             print(result_links)
             return result_links
