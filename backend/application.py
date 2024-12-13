@@ -6,14 +6,21 @@ from pprint import pprint
 from memory_profiler import profile
 
 class Application():
-    @profile
+    """
+    Application Class
+
+    Attributes:
+        retriever (Retriever): Responsible for data retrieval operation
+        indexer (Indexer): Index raw data to database
+        generator (Generator): Open AI LLM
+        text_embed_model (NomicEmbed): generate embeddings for retrieval tasks
+    """
     def __init__(self):
         self.retriever = Retriever()
         self.indexer = None #TODO implement class Indexer
         self.generator = Generator()
         self.text_embed_model = NomicEmbed()
 
-    @profile
     def begin(self):
         while(1):
             query = input("Query: ")
