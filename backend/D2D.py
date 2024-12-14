@@ -6,7 +6,6 @@ from llama_index.core.schema import Document as LlamaIndexDocument
 from llama_index.core.schema import TextNode
 from typing import List
 from nomic_embed import NomicEmbed
-from nomic_embed_vision import NomicEmbededVison
 from numpy import ndarray
 import json
 from datetime import datetime
@@ -30,8 +29,6 @@ class D2D():
     def __init__(self):
         self.chunker = SemanticChunker()
         self.text_embedder = NomicEmbed()
-        self.image_embedder = NomicEmbededVison()
-        pass
 
     def __chunk_nodes_from_document(self, document: LlamaIndexDocument) -> List[TextNode]:
         """Chunks a document into a list of TextNodes.

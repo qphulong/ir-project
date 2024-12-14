@@ -1,7 +1,8 @@
 import sys
+import os
 import json
 
-SYSTEM_PATH = "D:/repos/IR project/ir-project"
+SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
 from backend.D2D import D2D
