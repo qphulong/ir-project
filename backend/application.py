@@ -29,37 +29,35 @@ class Application():
         self.image_embed_model = NomicEmbedVision()
         self.documents_loader = D2D()
 
-    def _load_doc(self, path: str) -> str:
-        """Load document file (docx, pdf) to ram (json)
+    def _load_doc(self, path: str) -> dict:
+        """Load document file (docx, pdf) to ram (dict)
         Args:
             path str: file path
         Returns:
-            str: data in json format
+            data dict: data in dict
         """
-        data = self.documents_loader.convert_to_json(path)
+        data = self.documents_loader.convert_to_dict(path)
         if data is None:
             raise ValueError(f"Cannot load data from {path}")
         return data
 
-    def _load_data(self, path: str) -> str:
-        """Load data from disk (base64) to ram (json)
+    def _load_data(self, path: str) -> dict:
+        """Load data from disk (json) to ram (dict)
         Args:
             path str: file path
         Returns:
-            str: data in json format
+            data dict: data in dict
         """
         data = self.documents_loader.load_from_disk(path)
         if data is None:
             raise ValueError(f"Cannot load data from {path}")
         return data
     
-    def _save_data(self, path: str, data: str) -> None:
-        """Save data from ram (json) to disk (base64)
+    def _save_data(self, path: str, data: dict) -> None:
+        """Save data from ram (dict) to disk (json)
         Args:
             path str: file path
-            data str: json data
-        Returns:
-            str: data in json format
+            data dict: dict data
         """
         self.documents_loader.save_to_disk(path, data)
 

@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 
 SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
@@ -11,16 +10,14 @@ docx_path = "resources/WilliamShakespeare.docx"
 pdf_path = "resources/WilliamShakespeare.pdf"
 d2d = D2D()
 
-docx_json = d2d.convert_to_json(docx_path)
-pdf_json = d2d.convert_to_json(pdf_path)
+docx_data = d2d.convert_to_dict(docx_path)
+pdf_data = d2d.convert_to_dict(pdf_path)
 
-d2d.save_to_disk("docx.bin", docx_json)
-d2d.save_to_disk("pdf.bin", pdf_json)
+d2d.save_to_disk("docx.json", docx_data)
+d2d.save_to_disk("pdf.json", pdf_data)
 
-docx_json = d2d.load_from_disk("docx.bin")
-pdf_json = d2d.load_from_disk("pdf.bin")
+docx_data = d2d.load_from_disk("docx.json")
+pdf_data = d2d.load_from_disk("pdf.json")
 
-with open("docx2.json", "w") as f:
-    f.write(docx_json)
-with open("pdf2.json", "w") as f:
-    f.write(pdf_json)
+d2d.save_to_disk("docx2.json", docx_data)
+d2d.save_to_disk("pdf2.json", pdf_data)
