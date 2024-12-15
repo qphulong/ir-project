@@ -45,22 +45,33 @@ class Application():
 
             # get query_embedding and search images space
             query_embedding = self.text_embed_model._get_embeddings_for_image_query(query)
-            img_urls = self.retriever.search_image_space(query_embedding)
+            img_urls, image_score_points = self.retriever.search_image_space(query_embedding)
+            pprint("This is the list of image urls")
+            pprint(img_urls)
+            pprint("List of image id which you use to retrieve full document text")
+            pprint(image_score_points)
             query_embedding = binary_quantized(query_embedding)
             
             # search text space
-            texts = self.retriever.search_text_space(query_embedding)
+            texts, text_score_points  = self.retriever.search_text_space(query_embedding)
+            pprint("This is the list of text show up on the right scroll box")
+            pprint(texts)
+            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+            pprint(text_score_points)
             document_str = ""
             for i,text in enumerate(texts):
                 document_str += f"Document {i}:\n{text}\n\n"
             response = self.generator.check_informative(user_query=query,documents_str=document_str)
-            print(response)
             if response != 'False': # If response if informative, continue to next loop/question
                 print(response)
                 continue
             
             # search metadata space
-            metadatas = self.retriever.search_metadata_space(query_embedding)
+            metadatas,metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
+            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
+            pprint(metadatas)
+            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+            pprint(metadatas_score_points)
             document_str = ""
             for i,metadata in enumerate(metadatas):
                 document_str += f"Document {i}:\n{metadata}\n\n"
@@ -74,7 +85,11 @@ class Application():
             self.search_internet(search_query=search_query)
 
             # Re-search vector store
-            texts = self.retriever.search_text_space(query_embedding)
+            texts, text_score_points  = self.retriever.search_text_space(query_embedding)
+            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
+            pprint(texts)
+            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+            pprint(text_score_points)
             document_str = ""
             for i,text in enumerate(texts):
                 document_str += f"Document {i}:\n{text}\n\n"
@@ -83,7 +98,11 @@ class Application():
                 print(response)
                 continue   
 
-            metadatas = self.retriever.search_metadata_space(query_embedding)
+            metadatas,metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
+            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
+            pprint(metadatas)
+            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+            pprint(metadatas_score_points)
             document_str = ""
             for i,metadata in enumerate(metadatas):
                 document_str += f"Document {i}:\n{metadata}\n\n"
