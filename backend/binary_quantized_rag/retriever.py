@@ -78,7 +78,7 @@ class Retriever():
         # shorten and change dtype of vectors
         self.text_space.vectors[''] = self.text_space.vectors[''].astype(np.uint8)[:n_embeddings]
                         
-    def search_text_space(self, query_vector:np.ndarray,top_k:int = 8) -> List[str]:
+    def search_text_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input('User: ')
@@ -91,7 +91,7 @@ class Retriever():
             query_vector=query_vector,
             limit=top_k,
         )
-        return self._get_texts_base_on_search_results(results)
+        return self._get_texts_base_on_search_results(results),results
     
     def _get_texts_base_on_search_results(self, results:List[ScoredPoint])->List[str]:
         texts = []
@@ -149,7 +149,7 @@ class Retriever():
         # shorten and change dtype of vectors
         self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.float32)[:n_embeddings]
 
-    def search_image_space(self, query_vector:np.ndarray,top_k:int = 8) -> List[str]:
+    def search_image_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input("Query: ")
@@ -161,7 +161,7 @@ class Retriever():
             query_vector=query_vector,
             limit=top_k,
         )
-        return self._get_images_based_on_search_results(results)
+        return self._get_images_based_on_search_results(results),results
     
     def _setup_metadata_space(self):
         """Prepare the metadata_space collection"""
@@ -205,14 +205,14 @@ class Retriever():
         # shorten and change dtype of vectors
         self.metadata_space.vectors[''] = self.metadata_space.vectors[''].astype(np.uint8)[:n_embeddings]
 
-    def search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8)->List[str]:
+    def search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8)->Tuple[List[str],List[ScoredPoint]]:
         """Same for search_text_space"""
         results =  self.qdrant_local.search(
             collection_name='metadata_space',
             query_vector=query_vector,
             limit=top_k,
         )
-        return self._get_metadatas_base_on_search_results(results)
+        return self._get_metadatas_base_on_search_results(results),results
     
     def _get_metadatas_base_on_search_results(self,results:List[ScoredPoint])->List[str]:
         metadatas = []
