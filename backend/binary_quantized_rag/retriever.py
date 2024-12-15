@@ -84,7 +84,7 @@ class Retriever():
         query = input('User: ')
         query_embedding = embed_model._get_text_embedding(query)
         query_embedding = binary_quantized(query_embedding)
-        _search_text_space(query_embedding)
+        search_text_space(query_embedding)
         """
         results = self.qdrant_local.search(
             collection_name='text_space',
@@ -154,7 +154,7 @@ class Retriever():
         Example usage:
         query = input("Query: ")
         query_embedding = text_embed_model._get_embeddings_for_image_query(query)
-        _search_image_space(query_embedding)
+        search_image_space(query_embedding)
         """
         results =  self.qdrant_local.search(
             collection_name='image_space',

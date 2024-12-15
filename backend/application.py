@@ -5,6 +5,10 @@ from .utils import *
 from pprint import pprint
 from memory_profiler import profile
 from .query_preprocessor import QueryPreprocessor
+from qdrant_client.conversions.common_types import ScoredPoint
+from typing import List
+import os
+import json
 
 class Application():
     """
@@ -61,7 +65,6 @@ class Application():
             for i,metadata in enumerate(metadatas):
                 document_str += f"Document {i}:\n{metadata}\n\n"
             response = self.generator.check_informative(user_query=query,documents_str=document_str)
-            print(response)
             if response != 'False': # If response if informative, continue to next loop/question
                 print(response)
                 continue
@@ -111,3 +114,73 @@ class Application():
             - List[str]: a list of refined queries
         """
         return self.query_preprocessor.preprocess_query(query=user_query,k=k)
+    
+    def _search_text_space(self, user_query:str, top_k: int=8) -> List[ScoredPoint]:
+        """
+        Private method to search text space
+
+        Args:
+            - user_query (str): User query string
+            - top_k (int): Get top top_k results 
+
+        Returns:
+            - List[ScoredPoint]: List of results (id, similarity score, ...)
+
+        Example outputs:
+        [ScoredPoint(id='medium_c20340289683_text_12', version=0, score=25094.0, payload={}, vector=None, shard_key=None, order_value=None), 
+        ScoredPoint(id='medium_610bbb304850_text_3', version=0, score=25853.0, payload={}, vector=None, shard_key=None, order_value=None)]
+        """
+        query_embedding = self.text_embed_model._get_embeddings_for_image_query(user_query)
+        query_embedding = binary_quantized(query_embedding)
+        search_results = self.retriever.qdrant_local.search(
+            collection_name='text_space',
+            query_vector=query_embedding,
+            limit=top_k,
+        )
+        return search_results
+    
+    def _search_metadata_space(self, user_query:str, top_k:int = 8) -> List[ScoredPoint]:
+        """Like above"""
+        query_embedding = self.text_embed_model._get_embeddings_for_image_query(user_query)
+        query_embedding = binary_quantized(query_embedding)
+        search_results = self.retriever.qdrant_local.search(
+            collection_name='metadata_space',
+            query_vector=query_embedding,
+            limit=top_k,
+        )
+        return search_results
+    
+    def _search_image_space(self, user_query:str, top_k:int =8) -> List[ScoredPoint]:
+        """Like above but for images"""
+        query_embedding = self.text_embed_model._get_embeddings_for_image_query(user_query)
+        search_results = self.retriever.qdrant_local.search(
+            collection_name='image_space',
+            query_vector=query_embedding,
+            limit=top_k,
+        )
+        return search_results
+    
+    def _get_all_text_from_fragment_id(self, point_id:str) -> str:
+        """
+        Get all document content base on the id of that document elements
+        
+        Args:
+            - point_id: id of the 'Point' in vector space
+                For example,
+                chunked text id: cnn_L19wYWdlcy9jbHc3eHZ2YmEwMDAwYmpwZDNuaG1hYnFo_text_5
+                image id: cnn_L19wYWdlcy9jbHc3eHZ2YmEwMDAwYmpwZDNuaG1hYnFo_image_4
+                metadata_id: cnn_L19wYWdlcy9jbHc3eHZ2YmEwMDAwYmpwZDNuaG1hYnFo
+
+        Returns:
+            - str: Concated string of all text element in that document
+        """
+        post_id = point_id.split('_text_')[0].split('_image_')[0]
+        json_file_path = os.path.join(self.retriever.database_path, f"{post_id}.json")
+        with open(json_file_path, 'r', encoding='utf-8') as json_file:
+            document_data = json.load(json_file)
+        content_dict = document_data['content']
+        output_str = ''
+        for key,value in content_dict.items():
+            chunked_text = value['content'] + "\n"
+            output_str +=chunked_text
+        return output_str
