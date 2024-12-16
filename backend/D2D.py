@@ -136,7 +136,7 @@ class D2D():
         for id in data["content"]:
             emb = data["content"][id]["embedding"]
             base64 = binary_array_to_base64(emb)
-            data["cotent"][id]["embedding"] = base64
+            data["content"][id]["embedding"] = base64
         for id in data["images"]:
             emb = data["images"][id]["embedding"]
             base64 = float32_vector_to_base64(emb)
@@ -148,7 +148,7 @@ class D2D():
         """Loads json data from disk.
         """
         with open(file_path, 'r') as f:
-            data = json.load(f.read())
+            data = json.load(f)
         for id in data["content"]:
             base64 = data["content"][id]["embedding"]
             emb = base64_to_binary_array(base64)
