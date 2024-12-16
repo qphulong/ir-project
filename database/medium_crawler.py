@@ -15,17 +15,20 @@ from backend import NomicEmbedVision, NomicEmbed
 
 class MediumScraper:
     """
-    A class to scrape Medium articles using the RapidAPI platform.
+    A class to scrape Medium articles using the RapidAPI platform and process them for storage and embedding.
 
     Attributes:
-        api_key (str): The API key for accessing RapidAPI.
+        api_key (str): The API key for accessing the RapidAPI service.
         base_url (str): The base URL for the Medium-related API.
-        text_embed_model (NomicEmbed): The model for text embedding.
-        vision_embed_model (NomicEmbedVision): The model for image embedding.
+        text_embed_model (NomicEmbed): The model used for generating text embeddings.
+        vision_embed_model (NomicEmbedVision): The model used for generating image embeddings.
 
     Methods:
         scrape_and_save_articles(keyword: str, k: int = 10):
             Scrapes and saves the top k articles from Medium based on the given keyword.
+
+        scrape_and_save_article(article_id: str):
+            Scrapes and saves a single article based on its ID.
 
         get_embed_text(text: str) -> str:
             Generates and returns the base64-encoded text embedding for the given text.
@@ -36,20 +39,23 @@ class MediumScraper:
         search_posts(query: str, k: int = 10) -> List[str]:
             Searches Medium for the top k articles based on a query and returns a list of article IDs.
 
-        fetch_article_details(article_id: str) -> Dict[str, str]:
-            Fetches detailed information for a given article using its ID, including metadata, content, and images.
+        fetch_article_details(article_id: str) -> Dict[str, Any]:
+            Fetches detailed information (metadata, content, images) for a given article using its ID.
 
-        fetch_article_html(article_id: str, fullpage: bool = True):
+        fetch_article_html(article_id: str, fullpage: bool = True) -> str:
             Fetches the HTML content of an article by its ID. Optionally, you can fetch the full page.
 
-        fetch_article_paragraphs(html: str, ID) -> Dict[str, Any]:
-            Extracts and processes paragraphs from the HTML of an article, returning them with embeddings.
+        fetch_metadata(soup: BeautifulSoup, ID: str, article_id: str) -> Dict[str, Any]:
+            Extracts metadata (title, date, author, etc.) from the HTML of an article.
 
-        fetch_article_images(html: str, ID) -> Dict:
-            Extracts and processes images from the HTML of an article, returning the image URLs and embeddings.
+        fetch_article_paragraphs(html: str, ID: str) -> Dict[str, Any]:
+            Extracts and processes paragraphs from the HTML of an article, generating embeddings for each paragraph.
+
+        fetch_article_images(html: str, ID: str) -> Dict[str, Any]:
+            Extracts and processes images from the HTML of an article, generating embeddings for each image.
 
         save_article_to_file(article_details: Dict[str, Any], article_id: str):
-            Saves the article's details (including content and metadata) to a JSON file in the 'database/Medium' folder.
+            Saves the article's details (content, metadata, embeddings) to a JSON file in the 'resources/test-big-database/database/Medium' folder.
     """
 
     def __init__(self, api_key: str):
@@ -58,8 +64,8 @@ class MediumScraper:
         self.text_embed_model = NomicEmbed()
         self.vision_embed_model = NomicEmbedVision()
 
-        if not os.path.exists("database/Medium"):
-            os.makedirs("database/Medium")
+        if not os.path.exists("resources/test-big-database/database/Medium"):
+            os.makedirs("resources/test-big-database/database/Medium")
 
     def scrape_and_save_top_k_articles(self, keyword: str, k: int = 10):
         try:
@@ -110,63 +116,23 @@ class MediumScraper:
         else:
             raise Exception(f"Error: {response.status_code} - {response.text}")
 
-    def fetch_article_details(self, article_id: str) -> Dict[str, str]:
-        endpoint = f"{self.base_url}/article/{article_id}"
-        headers = {
-            "x-rapidapi-host": "medium2.p.rapidapi.com",
-            "x-rapidapi-key": self.api_key
+    def fetch_article_details(self, article_id: str) -> Dict[str, Any]:
+        html = self.fetch_article_html(article_id)
+        id = "medium_" + article_id
+        soup = BeautifulSoup(html, 'html.parser')
+        metadata  = self.fetch_metadata(soup, id, article_id)
+        embedding =""
+        for key, value in metadata[id].items():
+            embedding += f"{key}: {value}\n"
+
+        metadata[id]["embedding"] = self.get_embed_text(embedding)
+        post_data : Dict[str, Any] = {
+            "id": id,
+            "metadata": metadata,
+            "content": self.fetch_article_paragraphs(html, id),
+            "images": self.fetch_article_images(html, id)
         }
-
-        response = requests.get(endpoint, headers=headers)
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                if isinstance(data, dict):  # Ensure the data is a dictionary
-                    id = "medium_" + article_id
-                    title = data.get("title", "No Title Available")
-                    published_date = data.get("published_at", "Unknown Date")
-                    published_date = datetime.strptime(published_date, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-                    last_modified_date  = data.get("last_modified_at", "Unknown Date")
-                    last_modified_date = datetime.strptime(last_modified_date, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-                    url = data.get("url", "No URL Available")
-                    tags = data.get("tags", "No tag available")
-                    soup = self.fetch_article_html(article_id)
-                    author = self.extract_author_name(soup)
-
-                    metadata : Dict[str, Any] = {
-                        "url": url,
-                        "pageId": article_id,
-                        id: {
-                            "title": title,
-                            "keyword": tags,
-                            "author": author,
-                            "published_date": published_date,
-                            "last_update_date": last_modified_date,
-                        }
-                    }
-
-                    embedding =""
-                    for key, value in metadata[id].items():
-                        embedding += f"{key}: {value}\n"
-            
-                    metadata[id]["embedding"] = self.get_embed_text(embedding)
-
-                    post_data : Dict[str, Any] = {
-                        "id": id,
-                        "metadata": metadata,
-                        "content": self.fetch_article_paragraphs(soup, id),
-                        "images": self.fetch_article_images(soup, id)
-                    }
-
-                    return post_data
-                else:
-                    raise ValueError("Response data is not a dictionary.")
-            except Exception as e:
-                print(f"Error parsing article details: {e}")
-                print("Raw response content:", response.text)
-                raise
-        else:
-            raise Exception(f"Error: {response.status_code} - {response.text}")
+        return post_data
         
     def fetch_article_html(self, article_id: str, fullpage: bool = True):
         endpoint = f"{self.base_url}/article/{article_id}/html"
@@ -192,6 +158,39 @@ class MediumScraper:
             print(f"Unexpected error while fetching HTML for article {article_id}: {e}")
             raise
 
+
+    def fetch_metadata(Self, soup: BeautifulSoup, ID: str, article_id: str) -> Dict[str, Any]:
+        title = soup.find("title").text if soup.find("title") else "No Title Available"
+        published_date = soup.find("meta", {"name": "published_at"})["content"] if soup.find("meta", {"name": "published_at"}) else "Unknown Date"
+        last_modified_date = soup.find("meta", {"name": "last_modified_at"})["content"] if soup.find("meta", {"name": "last_modified_at"}) else "Unknown Date"
+
+        try:
+            published_date = datetime.strptime(published_date, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
+        except ValueError:
+            published_date = "Invalid Date Format"
+        try:
+            last_modified_date = datetime.strptime(last_modified_date, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
+        except ValueError:
+            last_modified_date = "Invalid Date Format"
+        
+        url = soup.find("meta", {"property": "og:url"})["content"] if soup.find("meta", {"property": "og:url"}) else "No URL Available"
+        tags = soup.find("meta", {"name": "keywords"})["content"] if soup.find("meta", {"name": "keywords"}) else "No tag available"
+        author = soup.find("meta", {"name": "author"})["content"] if soup.find("meta", {"name": "author"}) else "Unknown Author"
+
+        metadata: Dict[str, Any] = {
+            "url": url,
+            "pageId": article_id,
+            ID: {
+                "title": title,
+                "keyword": tags,
+                "author": author,
+                "published_date": published_date,
+                "last_update_date": last_modified_date,
+            }
+        }
+        
+        return metadata
+
         
     def fetch_article_paragraphs(self, html: str, ID) -> Dict[str, Any]:
         cleaned_html = html
@@ -209,15 +208,6 @@ class MediumScraper:
                 result[key] = {"content": text_cleaned, "embedding": self.get_embed_text(text_cleaned)}
 
         return result
-    
-    def extract_author_name(self, html: str) -> Optional[str]:
-        soup = BeautifulSoup(html, 'html.parser')
-        author_meta = soup.find('meta', attrs={'name': 'author'})
-
-        if author_meta and 'content' in author_meta.attrs:
-            return author_meta['content']
-    
-        return None
     
     def fetch_article_images(self, html:str, ID) -> Dict:
         images: Dict[str, Any] = {}
@@ -242,7 +232,7 @@ class MediumScraper:
         return images
 
     def save_article_to_file(self, article_details: Dict[str, Any], article_id: str):
-        file_name = f"database/Medium/{article_id}.json"  
+        file_name = f"resources/test-big-database/database/Medium/{article_id}.json"  
 
         with open(file_name, "w", encoding="utf-8") as file:
             json.dump(article_details, file, ensure_ascii=True, indent=4)

@@ -20,4 +20,4 @@ scraper.crape_and_save_top_k_articles(keyword=query, k=top_k)
 API_KEY = os.getenv("RAPID_API_KEY")
 scraper = MediumScraper(api_key=API_KEY)
 post_id = "1c560214fbac"
-scraper.scrape_and_save_top_k_articles(post_id)
+scraper.scrape_and_save_articles(post_id)

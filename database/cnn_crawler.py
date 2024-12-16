@@ -83,7 +83,7 @@ class CNNCrawler:
         save_post_data_to_json(post_data: Dict[str, Any], filename: str) -> None:
             Saves the scraped article data to a JSON file in the output directory.
     """
-    def __init__(self, output_dir: str = "database/CNN", visited_links_file="visited_links.json", max_depth=10):
+    def __init__(self, output_dir: str = "resources/test-big-database/database/CNN", visited_links_file="visited_links.json", max_depth=10):
         self.output_dir = output_dir
         self.user_agent = UserAgent()
         self.visited_links_file = visited_links_file
@@ -451,7 +451,6 @@ class CNNSearcher:
                     full_url = href if href.startswith("http") else f"https://edition.cnn.com{href}"
                     if full_url not in result_links and "/live-news/" not in full_url:
                         result_links.append(full_url)
-            print(result_links)
             return result_links
         finally:
             driver.quit()
