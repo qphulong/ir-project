@@ -9,6 +9,8 @@ from qdrant_client.conversions.common_types import ScoredPoint
 from typing import List
 import os
 import json
+from numpy import ndarray
+from PIL.ImageFile import ImageFile
 
 class Application():
     """
