@@ -50,7 +50,6 @@ class Application():
             pprint(img_urls)
             pprint("List of image id which you use to retrieve full document text")
             pprint(image_score_points)
-            
             query_embedding = binary_quantized(query_embedding)
             
             # search text space
@@ -99,8 +98,17 @@ class Application():
                 print(response)
                 continue   
 
-
-
+            metadatas,metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
+            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
+            pprint(metadatas)
+            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+            pprint(metadatas_score_points)
+            document_str = ""
+            for i,metadata in enumerate(metadatas):
+                document_str += f"Document {i}:\n{metadata}\n\n"
+            response = self.generator.generate(query,document_str)
+            print(response)
+    
     def search_internet(self,search_query:str,n_cnn:int=4,n_medium:int=4):
         """
         Function to crawl realtime posts on CNN and medium
