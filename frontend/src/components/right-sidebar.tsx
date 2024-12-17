@@ -24,7 +24,7 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
     <div className="w-64 bg-gray-100 text-gray-800 flex flex-col h-full transition-all duration-300 ease-in-out fixed right-0 top-0 bottom-0 z-20">
       <div className="p-4 flex-grow overflow-hidden flex flex-col">
         <h2 className="text-lg font-semibold mb-4">Documents</h2>
-        {showDocuments ? (
+        {showDocuments && documents.length > 0 ? (
           <ScrollArea className="flex-grow">
             {documents.map((doc) => (
               <Dialog key={doc.id}>
@@ -37,13 +37,14 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
                     <span className="block truncate">{doc.snippet}</span>
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[80vh] w-full sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Document Details</DialogTitle>
                   </DialogHeader>
-                  <div className="mt-4">
+                  {/* Make the dialog content scrollable */}
+                  <ScrollArea className="mt-4 max-h-[60vh]">
                     <p>{doc.content}</p>
-                  </div>
+                  </ScrollArea>
                 </DialogContent>
               </Dialog>
             ))}
@@ -55,4 +56,3 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
     </div>
   )
 }
-

@@ -2,19 +2,22 @@ import sys
 import os
 import json
 from flask import Flask, render_template, request, jsonify
+# from backend import NaiveRAG
+from llama_index.core.schema import Document as LLamaDocument
 
 SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
-from backend import NaiveRAG
-from llama_index.core.schema import Document as LLamaDocument
+
+
 
 api = Flask(__name__)
 
-naive_rag = NaiveRAG(
-    resource_path='./resources/test-big-database',
-    embed_model_path='./resources/models/',
-)
+__all__ = ['api', 'ping', 'process_query']
+# naive_rag = NaiveRAG(
+#     resource_path='./resources/test-big-database',
+#     embed_model_path='./resources/models/',
+# )
 
 # Register the API routes here
 # Ping route (for testing)
@@ -22,8 +25,30 @@ naive_rag = NaiveRAG(
 def ping():
     return 'pong'
 
-@api.route('/api/chat-naiverag', methods=['POST'])
-def chat_naiverag():
+# @api.route('/api/chat-naiverag', methods=['POST'])
+# def chat_naiverag():
+#     """
+#     Flask API endpoint for the NaiveRAG system.
+#     Accepts a POST request with JSON payload containing the user query.
+#     """
+#     try:
+#         # Get JSON data from request
+#         data = request.get_json()
+#         user_query = data.get("query", "")
+        
+#         if not user_query:
+#             return jsonify({"error": "Query not provided"}), 400
+        
+#         # Process the user query through NaiveRAG
+#         answer = naive_rag.process_query(user_query)
+        
+#         return jsonify({"query": user_query, "response": answer}), 200
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+    
+@api.route('/api/process_query', methods=['POST'])
+def process_query():
+
     """
     Flask API endpoint for the NaiveRAG system.
     Accepts a POST request with JSON payload containing the user query.
@@ -32,14 +57,40 @@ def chat_naiverag():
         # Get JSON data from request
         data = request.get_json()
         user_query = data.get("query", "")
-        
+        from backend import Application
+        application = Application()
         if not user_query:
             return jsonify({"error": "Query not provided"}), 400
         
         # Process the user query through NaiveRAG
-        answer = naive_rag.process_query(user_query)
+        # answer = naive_rag.process_query(user_query)
+        answer = application.process_query(user_query)
+        # print(answer)
+        return jsonify(answer), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@api.route('/api/search_text_query', methods=['POST'])
+def search_text_query():
+    """
+    Flask API endpoint for the NaiveRAG system.
+    Accepts a POST request with JSON payload containing the user query.
+    """
+    try:
+        # Get JSON data from request
+        data = request.get_json()
+        user_query = data.get("query", "")
+        from backend import Application
+        application = Application()
+        if not user_query:
+            return jsonify({"error": "Query not provided"}), 400
         
-        return jsonify({"query": user_query, "response": answer}), 200
+        # Process the user query through NaiveRAG
+        # answer = naive_rag.process_query(user_query)
+        answer = application.preprocess_query(user_query)
+        print(answer)
+        # return jsonify(answer), 200
+        return jsonify({"response": answer}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -49,6 +100,8 @@ def chat_naiverag():
 @api.route('/', defaults={'path': ''})
 @api.route('/<path:path>')
 def catch_all(path):
+    from backend import Application
+    application = Application()
     entry_path = os.getenv('VITE_ENTRY_PATH')
     if entry_path is not None:
         # Development mode
@@ -62,3 +115,4 @@ def catch_all(path):
             return render_template('index.html', entry_stylesheet=entry_stylesheet, entry_script=entry_script)
     else:
         raise Exception('VITE_ENTRY_PATH environment variable not set')
+        

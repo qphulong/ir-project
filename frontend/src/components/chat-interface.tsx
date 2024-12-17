@@ -4,11 +4,10 @@ import { Sidebar } from './sidebar'
 import { RightSidebar } from './right-sidebar'
 import { ChatArea } from './chat-area'
 import { InputArea } from './input-area'
-import { PanelLeftOpen, PanelLeftClose,PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 
 import { api } from '../api/index'
-
 
 export interface Message {
   id: number
@@ -28,34 +27,17 @@ interface Document {
   content: string
 }
 
-// A sample Document array to be passed to the RightSidebar component
-const sampleDocuments: Document[] = [
-  {
-    id: 1,
-    snippet: "This shift isn't just about minimizing environmental impact.",
-    content: "This shift isn't just about minimizing environmental impact. It's about reimagining our relationship with resources, fostering innovation in sustainable technologies, and creating a more resilient global economy. The transition to a circular economy represents a fundamental change in how we produce, consume, and dispose of goods."
-  },
-  {
-    id: 2,
-    snippet: "The defense has sought to raise questions about the digital evidence in the",
-    content: "The defense has sought to raise questions about the digital evidence in the case, arguing that the prosecution's reliance on cell phone location data and social media activity is not as conclusive as they claim. They contend that such digital footprints can be misleading or manipulated, and should not be the sole basis for determining the defendant's whereabouts or actions on the day in question."
-  },
-  {
-    id: 3,
-    snippet: "Location history data for a cell phone tied to Jose Antonio Ibarra",
-    content: "Location history data for a cell phone tied to Jose Antonio Ibarra, who is accused of killing nursing student Laken Riley, placed his phone \"very close\" to Laken Riley at the time of her killing, FBI Special Agent James \"Jay\" Berni testified in court Monday. The data showed Ibarra's phone was in the area of the crime scene on the morning of February 22, the day Riley was killed, according to Berni's testimony."
-  }
-]
-
-export default function ChatGPTLikeInterface() {
+export default function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
-
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
-  const [showDocuments, setShowDocuments] = useState(true); // Added state for document visibility
 
+  // State to hold documents returned from the API
+  const [documents, setDocuments] = useState<Document[]>([])
+  // Control whether documents are shown in the right sidebar
+  const [showDocuments, setShowDocuments] = useState(true);
 
   useEffect(() => {
     const savedConversations = localStorage.getItem('conversations')
@@ -86,7 +68,7 @@ export default function ChatGPTLikeInterface() {
     if (!currentConversation) return
 
     setShowDocuments(true) // Show documents when a question is asked
-
+    setDocuments([]) // Clear previous documents before fetching new ones
 
     const newMessage: Message = {
       id: currentConversation.messages.length + 1,
@@ -100,24 +82,26 @@ export default function ChatGPTLikeInterface() {
     }
 
     setCurrentConversation(updatedConversation)
-    setConversations(conversations.map(conv => 
+    setConversations(conversations.map(conv =>
       conv.id === currentConversation.id ? updatedConversation : conv
     ))
 
     setIsTyping(true)
 
     try {
-      const response = await api.post('/api/chat-naiverag', { query: content })
+      // Call the updated API endpoint
+      const response = await api.post('/api/process_query', { query: content })
 
       if (!response.data) {
         throw new Error('Failed to fetch response from API')
       }
+
       const data = response.data
 
-
+      // The API now returns `final_response` instead of `response`
       const assistantMessage: Message = {
         id: updatedConversation.messages.length + 1,
-        content: data.response,
+        content: data.final_response,
         role: 'assistant'
       }
 
@@ -127,9 +111,21 @@ export default function ChatGPTLikeInterface() {
       }
 
       setCurrentConversation(finalConversation)
-      setConversations(conversations.map(conv => 
+      setConversations(conversations.map(conv =>
         conv.id === currentConversation.id ? finalConversation : conv
       ))
+
+      // Process documents returned by the API
+      if (data.texts && data.texts.documents) {
+        const newDocuments: Document[] = data.texts.documents.map((doc: string, index: number) => ({
+          id: index + 1,
+          snippet: doc.substring(0, 100) + (doc.length > 100 ? '...' : ''),
+          // content: doc
+          content: data.texts.score_points[index]
+        }))
+        setDocuments(newDocuments)
+      }
+
     } catch (error) {
       console.error('Error fetching response:', error)
       const errorMessage: Message = {
@@ -142,7 +138,7 @@ export default function ChatGPTLikeInterface() {
         messages: [...updatedConversation.messages, errorMessage]
       }
       setCurrentConversation(finalConversation)
-      setConversations(conversations.map(conv => 
+      setConversations(conversations.map(conv =>
         conv.id === currentConversation.id ? finalConversation : conv
       ))
     } finally {
@@ -159,7 +155,7 @@ export default function ChatGPTLikeInterface() {
     setConversations([...conversations, newConversation])
     setCurrentConversation(newConversation)
     setShowDocuments(false)  // Reset showDocuments when starting a new conversation
-
+    setDocuments([]) // Clear documents
   }
 
   const renameConversation = (id: number, newTitle: string) => {
@@ -182,7 +178,7 @@ export default function ChatGPTLikeInterface() {
 
   return (
     <div className="flex h-screen bg-gray-100 relative">
-      <Sidebar 
+      <Sidebar
         conversations={conversations}
         currentConversation={currentConversation}
         setCurrentConversation={setCurrentConversation}
@@ -190,7 +186,7 @@ export default function ChatGPTLikeInterface() {
         renameConversation={renameConversation}
         deleteConversation={deleteConversation}
         isOpen={leftSidebarOpen}
-        setShowDocuments={setShowDocuments} // Pass setShowDocuments to Sidebar
+        setShowDocuments={setShowDocuments}
       />
       <Button
         variant="outline"
@@ -222,8 +218,9 @@ export default function ChatGPTLikeInterface() {
         {rightSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
         <span className="sr-only">{rightSidebarOpen ? 'Close right sidebar' : 'Open right sidebar'}</span>
       </Button>
-      <RightSidebar documents={sampleDocuments} isOpen={rightSidebarOpen} showDocuments={showDocuments}/> {/*Added showDocuments prop*/}
+
+      {/* Pass the dynamically fetched documents to the RightSidebar */}
+      <RightSidebar documents={documents} isOpen={rightSidebarOpen} showDocuments={showDocuments}/>
     </div>
   )
-
 }

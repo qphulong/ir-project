@@ -21,6 +21,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 
+import { api } from '@/api'
 interface SidebarProps {
   conversations: Conversation[]
   currentConversation: Conversation | null
@@ -28,6 +29,7 @@ interface SidebarProps {
   startNewConversation: () => void
   renameConversation: (id: number, newTitle: string) => void
   deleteConversation: (id: number) => void
+  setShowDocuments: (showDocuments: boolean) => void
   isOpen: boolean
 }
 
@@ -38,6 +40,7 @@ export function Sidebar({
   startNewConversation,
   renameConversation,
   deleteConversation,
+  setShowDocuments,
   isOpen
 }: SidebarProps) {
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -54,26 +57,42 @@ export function Sidebar({
 
   if (!isOpen) return null
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim() === '') {
       setSearchResults([])
       return
     }
+
+    let results =[]
+    try {
+      // Call the updated API endpoint
+      const response = await api.post('/api/search_text_query', { query: searchQuery })
+      if (!response.data) {
+        throw new Error('Failed to fetch response from API')
+      }
+      const data = response.data
+      results = data.response
+
+    }
+    catch (error) {
+      results.push('Failed to fetch response from API')
+    }
+
     
-    // Simulated search results
-    const results = [
-      `What is the best way to learn ${searchQuery}?`,
-      `What are the most effective methods to learn ${searchQuery}?`,
-      `How can I learn ${searchQuery} effectively?`,
-      `Top resources for learning ${searchQuery}`,
-      `${searchQuery} for beginners: where to start?`,
-      `Advanced techniques in ${searchQuery}`,
-      `${searchQuery} vs other similar topics`,
-      `Career opportunities with ${searchQuery} skills`,
-      `Common mistakes when learning ${searchQuery}`,
-      `How long does it take to master ${searchQuery}?`
-    ]
+    // // Simulated search results
+    // const results = [
+    //   `What is the best way to learn ${searchQuery}?`,
+    //   `What are the most effective methods to learn ${searchQuery}?`,
+    //   `How can I learn ${searchQuery} effectively?`,
+    //   `Top resources for learning ${searchQuery}`,
+    //   `${searchQuery} for beginners: where to start?`,
+    //   `Advanced techniques in ${searchQuery}`,
+    //   `${searchQuery} vs other similar topics`,
+    //   `Career opportunities with ${searchQuery} skills`,
+    //   `Common mistakes when learning ${searchQuery}`,
+    //   `How long does it take to master ${searchQuery}?`
+    // ]
     setSearchResults(results)
   }
 
