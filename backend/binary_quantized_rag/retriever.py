@@ -78,20 +78,20 @@ class Retriever():
         # shorten and change dtype of vectors
         self.text_space.vectors[''] = self.text_space.vectors[''].astype(np.uint8)[:n_embeddings]
                         
-    def search_text_space(self, query_vector:np.ndarray,top_k:int = 8) -> List[str]:
+    def search_text_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input('User: ')
         query_embedding = embed_model._get_text_embedding(query)
         query_embedding = binary_quantized(query_embedding)
-        _search_text_space(query_embedding)
+        search_text_space(query_embedding)
         """
         results = self.qdrant_local.search(
             collection_name='text_space',
             query_vector=query_vector,
             limit=top_k,
         )
-        return self._get_texts_base_on_search_results(results)
+        return self._get_texts_base_on_search_results(results),results
     
     def _get_texts_base_on_search_results(self, results:List[ScoredPoint])->List[str]:
         texts = []
@@ -149,19 +149,19 @@ class Retriever():
         # shorten and change dtype of vectors
         self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.float32)[:n_embeddings]
 
-    def search_image_space(self, query_vector:np.ndarray,top_k:int = 8) -> List[str]:
+    def search_image_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input("Query: ")
         query_embedding = text_embed_model._get_embeddings_for_image_query(query)
-        _search_image_space(query_embedding)
+        search_image_space(query_embedding)
         """
         results =  self.qdrant_local.search(
             collection_name='image_space',
             query_vector=query_vector,
             limit=top_k,
         )
-        return self._get_images_based_on_search_results(results)
+        return self._get_images_based_on_search_results(results),results
     
     def _setup_metadata_space(self):
         """Prepare the metadata_space collection"""
@@ -205,13 +205,14 @@ class Retriever():
         # shorten and change dtype of vectors
         self.metadata_space.vectors[''] = self.metadata_space.vectors[''].astype(np.uint8)[:n_embeddings]
 
-    def search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8)->List[str]:
+    def search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8)->Tuple[List[str],List[ScoredPoint]]:
+        """Same for search_text_space"""
         results =  self.qdrant_local.search(
             collection_name='metadata_space',
             query_vector=query_vector,
             limit=top_k,
         )
-        return self._get_metadatas_base_on_search_results(results)
+        return self._get_metadatas_base_on_search_results(results),results
     
     def _get_metadatas_base_on_search_results(self,results:List[ScoredPoint])->List[str]:
         metadatas = []
@@ -253,3 +254,56 @@ class Retriever():
                 img_url = data['images'][result.id]['image_url']
                 img_urls.append(img_url)
         return img_urls
+    
+    def add_point_to_text_space(self, point_id:str, vector: np.ndarray):
+        """
+        Adds a point with the specified ID and vector to the text space.
+        Args:
+            point_id (str): A unique identifier for the point to be added.
+            vector (np.ndarray): The vector representation of the point. MUST be binary quantized. (int8)
+
+        Returns:
+            None
+        """
+        number_of_vectors = len(self.text_space.vectors[''])
+        self.text_space._add_point(
+            point=PointStruct(
+                id = point_id,
+                vector=vector,
+                payload=None
+            )
+        )
+        self.text_space.vectors[''] = self.text_space.vectors[''][:number_of_vectors+1]
+
+    def add_point_to_metadata_space(self, point_id:str, vector: np.ndarray):
+        """Same for above"""
+        number_of_vectors = len(self.metadata_space.vectors[''])
+        self.metadata_space._add_point(
+            point=PointStruct(
+                id = point_id,
+                vector=vector,
+                payload=None
+            )
+        )
+        self.metadata_space.vectors[''] = self.metadata_space.vectors[''][:number_of_vectors+1]
+
+    def add_point_to_image_space(self, point_id:str, vector: np.ndarray):
+        """
+        Adds a point with the specified ID and vector to the image space.
+
+        Args:
+            point_id (str): A unique identifier for the point to be added.
+            vector (np.ndarray): The vector representation of the point. Must be float32
+
+        Returns:
+            None
+        """
+        number_of_vectors = len(self.image_space.vectors[''])
+        self.image_space._add_point(
+            point=PointStruct(
+                id = point_id,
+                vector=vector,
+                payload=None
+            )
+        )
+        self.image_space.vectors[''] = self.image_space.vectors[''][:number_of_vectors+1]

@@ -20,6 +20,8 @@ pprintpp==0.4.0
 #transformers==4.46.3
 #torch==2.5.1
 einops==0.8.0
+memory_profiler 
+qdrant-client
 
 # Flask
 itsdangerous==2.2.0
