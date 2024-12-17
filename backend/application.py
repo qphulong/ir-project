@@ -59,6 +59,7 @@ class Application():
         Guilde
         1. Save the json in database path (retriever.database_path)
         2. For each chunked text, load that id + vector to retriever.text_space
+        using self.retriever.add_point_to_text_space(point_id=,vector=)
         """
 
     def _load_data(self, path: str) -> dict:
