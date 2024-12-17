@@ -39,6 +39,8 @@ export default function ChatInterface() {
   // Control whether documents are shown in the right sidebar
   const [showDocuments, setShowDocuments] = useState(true);
 
+
+
   useEffect(() => {
     const savedConversations = localStorage.getItem('conversations')
     if (savedConversations) {
