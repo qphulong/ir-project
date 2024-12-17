@@ -1,10 +1,10 @@
 from pypdf import PdfReader
 from docx import Document
-from semantice_chunker import SemanticChunker
+from .semantice_chunker import SemanticChunker
 from llama_index.core.schema import Document as LlamaIndexDocument
 from llama_index.core.schema import TextNode
 from typing import List
-from nomic_embed import NomicEmbed
+from .nomic_embed import NomicEmbed
 from numpy import ndarray
 import json
 from datetime import datetime
