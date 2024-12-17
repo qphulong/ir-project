@@ -45,7 +45,12 @@ class Application():
 
             # get query_embedding and search images space
             query_embedding = self.text_embed_model._get_embeddings_for_image_query(query)
-            img_urls = self.retriever.search_image_space(query_embedding)
+            img_urls, image_score_points = self.retriever.search_image_space(query_embedding)
+            pprint("This is the list of image urls")
+            pprint(img_urls)
+            pprint("List of image id which you use to retrieve full document text")
+            pprint(image_score_points)
+            
             query_embedding = binary_quantized(query_embedding)
             
             # search text space
