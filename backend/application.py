@@ -11,6 +11,8 @@ import os
 import json
 from numpy import ndarray
 from PIL.ImageFile import ImageFile
+from .D2D import D2D
+from .nomic_embed_vision import NomicEmbedVision
 
 class Application():
     """
