@@ -16,7 +16,7 @@ class NomicEmbed(BaseEmbedding):
     model_name = "nomic-ai/nomic-embed-text-v1.5"
     tokenizer = AutoTokenizer.from_pretrained(model_name,trust_remote_code=True)
     model = AutoModel.from_pretrained(model_name,trust_remote_code=True)
-    save_directory = ".resources/models/nomic-text-embed-v1.5"
+    save_directory = ".resources/models/nomic-embed-text-v1.5"
     tokenizer.save_pretrained(save_directory)
     model.save_pretrained(save_directory)
     """

@@ -50,3 +50,46 @@ class QueryPreprocessor:
         except Exception as e:
             return None
         return [r.strip() for r in res if r.strip() != ""]
+    
+    def process_query_for_search(self, query: str) -> str:
+        """
+        Processes a user query into a search-engine-friendly string by translating it to English (if necessary),
+        fixing typos, removing punctuation and stopwords, and using simplified vocabulary.
+
+        Args:
+            query (str): The query string to be processed.
+
+        Returns:
+            str: A single, optimized query string for search engines.
+                Returns an empty string if processing fails.
+        """
+        try:
+            completion = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": """
+                    You are a helpful query optimizer for search engines.
+                    Your goal is to transform user queries into a clean and optimized search query for web systems.
+                    Steps:
+                    - Translate the query to English (if not already).
+                    - Fix typos and grammar errors.
+                    - Remove punctuation and stopwords.
+                    - Replace complex phrases with common and regular vocabulary.
+                    - Ensure the final result is compact and highly relevant for search systems.
+
+                    Input format:
+                        Query: <query>
+                    Output format:
+                        <optimized_query>
+                    """},
+                    {
+                        "role": "user",
+                        "content": f"Query: {query}"
+                    }
+                ]
+            )
+            # Extract the response content
+            optimized_query = completion.choices[0].message.content.strip()
+            return optimized_query
+        except Exception as e:
+            return ""

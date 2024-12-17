@@ -2,11 +2,11 @@
 import numpy as np
 import torch.nn.functional as F
 from transformers import AutoModel, AutoImageProcessor
-from PIL import Image, ImageFile
+from PIL import Image
+from PIL.ImageFile import ImageFile
 import requests
 from typing import Any
 from llama_index.core.bridge.pydantic import PrivateAttr
-from gpt4all import Embed4All
 
 MODEL_PATH = "./resources/models/nomic-embed-vision-v1.5"
 

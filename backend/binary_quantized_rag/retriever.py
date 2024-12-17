@@ -11,6 +11,7 @@ from llama_index.core.schema import NodeWithScore
 from llama_index.core.vector_stores import VectorStoreQuery, VectorStoreQueryResult
 from qdrant_client.local.qdrant_local import QdrantLocal
 from qdrant_client import QdrantClient, models
+from qdrant_client.conversions.common_types import ScoredPoint
 from qdrant_client.http.models.models import PointStruct, VectorParams
 from ..utils import *
 import numpy as np
@@ -77,19 +78,39 @@ class Retriever():
         # shorten and change dtype of vectors
         self.text_space.vectors[''] = self.text_space.vectors[''].astype(np.uint8)[:n_embeddings]
                         
-    def _search_text_space(self, query_vector:np.ndarray,top_k:int = 8):
+    def search_text_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input('User: ')
         query_embedding = embed_model._get_text_embedding(query)
         query_embedding = binary_quantized(query_embedding)
-        _search_text_space(query_embedding)
+        search_text_space(query_embedding)
         """
-        return self.qdrant_local.search(
+        results = self.qdrant_local.search(
             collection_name='text_space',
             query_vector=query_vector,
             limit=top_k,
         )
+        return self._get_texts_base_on_search_results(results),results
+    
+    def _get_texts_base_on_search_results(self, results:List[ScoredPoint])->List[str]:
+        texts = []
+        for result in results:
+            id = result.id
+            post_id = id.split('_text_')[0]
+            json_file_path = os.path.join(self.database_path, f"{post_id}.json")
+
+            # Check if the file exists
+            if os.path.exists(json_file_path):
+                # Open the JSON file and load its data
+                with open(json_file_path, 'r') as file:
+                    data = json.load(file)
+
+                # Retrieve the image URL from the JSON structure
+                text = data['content'][result.id]['content']
+                texts.append(text)
+        return texts
+
     
     def _setup_image_space(self):
         """Prepare the image_space collection"""
@@ -128,18 +149,19 @@ class Retriever():
         # shorten and change dtype of vectors
         self.image_space.vectors[''] = self.image_space.vectors[''].astype(np.float32)[:n_embeddings]
 
-    def _search_image_space(self, query_vector:np.ndarray,top_k:int = 8):
+    def search_image_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input("Query: ")
         query_embedding = text_embed_model._get_embeddings_for_image_query(query)
-        _search_image_space(query_embedding)
+        search_image_space(query_embedding)
         """
-        return self.qdrant_local.search(
+        results =  self.qdrant_local.search(
             collection_name='image_space',
             query_vector=query_vector,
             limit=top_k,
         )
+        return self._get_images_based_on_search_results(results),results
     
     def _setup_metadata_space(self):
         """Prepare the metadata_space collection"""
@@ -183,14 +205,105 @@ class Retriever():
         # shorten and change dtype of vectors
         self.metadata_space.vectors[''] = self.metadata_space.vectors[''].astype(np.uint8)[:n_embeddings]
 
-    def _search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8):
-        return self.qdrant_local.search(
+    def search_metadata_space(self, query_vector:np.ndarray,top_k:int = 8)->Tuple[List[str],List[ScoredPoint]]:
+        """Same for search_text_space"""
+        results =  self.qdrant_local.search(
             collection_name='metadata_space',
             query_vector=query_vector,
             limit=top_k,
         )
+        return self._get_metadatas_base_on_search_results(results),results
+    
+    def _get_metadatas_base_on_search_results(self,results:List[ScoredPoint])->List[str]:
+        metadatas = []
+        for result in results:
+            post_id = result.id
+            json_file_path = os.path.join(self.database_path, f"{post_id}.json")
+
+            # Check if the file exists
+            if os.path.exists(json_file_path):
+                # Open the JSON file and load its data
+                with open(json_file_path, 'r') as file:
+                    data = json.load(file)
+
+                # Retrieve the image URL from the JSON structure
+                metadata = data['metadata'][post_id]
+                metadata_str = "\n".join(f"{key}: {value}" for key, value in metadata.items() if key != 'embedding')
+                metadatas.append(metadata_str)
+        return metadatas
 
     def _setup(self):
         self._setup_text_space()
         self._setup_image_space()
         self._setup_metadata_space()
+
+    def _get_images_based_on_search_results(self, results:List[ScoredPoint]) -> List[str]:
+        img_urls = []
+        for result in results:
+            id = result.id
+            post_id = id.split('_image_')[0]
+            json_file_path = os.path.join(self.database_path, f"{post_id}.json")
+
+            # Check if the file exists
+            if os.path.exists(json_file_path):
+                # Open the JSON file and load its data
+                with open(json_file_path, 'r') as file:
+                    data = json.load(file)
+
+                # Retrieve the image URL from the JSON structure
+                img_url = data['images'][result.id]['image_url']
+                img_urls.append(img_url)
+        return img_urls
+    
+    def add_point_to_text_space(self, point_id:str, vector: np.ndarray):
+        """
+        Adds a point with the specified ID and vector to the text space.
+        Args:
+            point_id (str): A unique identifier for the point to be added.
+            vector (np.ndarray): The vector representation of the point. MUST be binary quantized. (int8)
+
+        Returns:
+            None
+        """
+        number_of_vectors = len(self.text_space.vectors[''])
+        self.text_space._add_point(
+            point=PointStruct(
+                id = point_id,
+                vector=vector,
+                payload=None
+            )
+        )
+        self.text_space.vectors[''] = self.text_space.vectors[''][:number_of_vectors+1]
+
+    def add_point_to_metadata_space(self, point_id:str, vector: np.ndarray):
+        """Same for above"""
+        number_of_vectors = len(self.metadata_space.vectors[''])
+        self.metadata_space._add_point(
+            point=PointStruct(
+                id = point_id,
+                vector=vector,
+                payload=None
+            )
+        )
+        self.metadata_space.vectors[''] = self.metadata_space.vectors[''][:number_of_vectors+1]
+
+    def add_point_to_image_space(self, point_id:str, vector: np.ndarray):
+        """
+        Adds a point with the specified ID and vector to the image space.
+
+        Args:
+            point_id (str): A unique identifier for the point to be added.
+            vector (np.ndarray): The vector representation of the point. Must be float32
+
+        Returns:
+            None
+        """
+        number_of_vectors = len(self.image_space.vectors[''])
+        self.image_space._add_point(
+            point=PointStruct(
+                id = point_id,
+                vector=vector,
+                payload=None
+            )
+        )
+        self.image_space.vectors[''] = self.image_space.vectors[''][:number_of_vectors+1]
