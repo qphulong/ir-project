@@ -47,20 +47,6 @@ class Application():
             raise ValueError(f"Cannot load data from {path}")
         return data
     
-    def insert_doc(self,path:str)->None:
-        """Save the document in the database path (./resources/quantized-db) 
-        and upload the vectors to vector space
-
-        Args: 
-            - path (str): file path
-        Returns:
-            - None
-
-        Guilde
-        1. Save the json in database path (retriever.database_path)
-        2. For each chunked text, load that id + vector to retriever.text_space
-        using self.retriever.add_point_to_text_space(point_id=,vector=)
-        """
 
     def _load_data(self, path: str) -> dict:
         """Load data from disk (json) to ram (dict)
@@ -81,6 +67,36 @@ class Application():
             data dict: dict data
         """
         self.documents_loader.save_to_disk(path, data)
+
+    def insert_doc(self,path:str)->None:
+        """Save the document in the database path (./resources/quantized-db) 
+        and upload the vectors to vector space
+
+        Args: 
+            - path (str): file path
+        Returns:
+            - None
+
+        Guilde
+        1. Save the json in database path (retriever.database_path)
+        2. For each chunked text, load that id + vector to retriever.text_space
+        using self.retriever.add_point_to_text_space(point_id=,vector=)
+        """
+        try:
+            data = self._load_doc(path)
+        except:
+            print(f"ERROR: Cannot load data from {path}")
+            return
+        self._save_data(os.path.join(self.retriever.database_path, f"{data['id']}.json"), data)
+        for key, value in data['content'].items():
+            point_id = key
+            vector = value['embedding']
+            self.retriever.add_point_to_text_space(point_id=point_id,vector=vector)
+        """Uncomment this if you want to add image vectors to image space and D2D support image (currently not)
+        for key, value in data['images'].items():
+            point_id = key
+            vector = value['embedding']
+            self.retriever.add_point_to_image_space(point_id=point_id,vector=vector)"""
 
     def _url_embed(self, url: str) -> ndarray:
         """Embed image from url

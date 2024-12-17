@@ -44,6 +44,7 @@ class D2D():
         metadata = pdf.metadata
         metadata = {
             'title': metadata.title,
+            'path': file_path,
             'author': metadata.author,
             'creator': metadata.creator,
             'creation_date': datetime_to_str(metadata.creation_date),
@@ -83,6 +84,7 @@ class D2D():
         metadata = doc.core_properties
         metadata = {
             'title': metadata.title,
+            'path': file_path,
             'author': metadata.author,
             'category': metadata.category,
             'subject': metadata.subject,
