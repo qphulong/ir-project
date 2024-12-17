@@ -193,6 +193,8 @@ class Retriever():
                     if 'id' in data:
                         # For each entry in the 'content', extract the embedding
                         dynamic_id = data['id']
+                        if not data['metadata'][dynamic_id]['embedding']:
+                            continue
                         embedding = base64_to_binary_array(data['metadata'][dynamic_id]['embedding'])
                         self.metadata_space._add_point(
                             point=PointStruct(
