@@ -40,6 +40,20 @@ class Application():
         if data is None:
             raise ValueError(f"Cannot load data from {path}")
         return data
+    
+    def insert_doc(self,path:str)->None:
+        """Save the document in the database path (./resources/quantized-db) 
+        and upload the vectors to vector space
+
+        Args: 
+            - path (str): file path
+        Returns:
+            - None
+
+        Guilde
+        1. Save the json in database path (retriever.database_path)
+        2. For each chunked text, load that id + vector to retriever.text_space
+        """
 
     def _load_data(self, path: str) -> dict:
         """Load data from disk (json) to ram (dict)
