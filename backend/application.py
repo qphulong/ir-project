@@ -50,6 +50,7 @@ class Application():
             pprint(img_urls)
             pprint("List of image id which you use to retrieve full document text")
             pprint(image_score_points)
+            
             query_embedding = binary_quantized(query_embedding)
             
             # search text space
