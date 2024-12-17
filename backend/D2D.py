@@ -1,15 +1,14 @@
 from pypdf import PdfReader
 from docx import Document
-from base64 import b64encode, b64decode
 from semantice_chunker import SemanticChunker
 from llama_index.core.schema import Document as LlamaIndexDocument
 from llama_index.core.schema import TextNode
 from typing import List
 from nomic_embed import NomicEmbed
-from nomic_embed_vision import NomicEmbededVison
 from numpy import ndarray
 import json
 from datetime import datetime
+from utils import binary_array_to_base64, base64_to_binary_array, binary_quantized, float32_vector_to_base64, base64_to_float32_vector
 
 def datetime_to_str(dt: datetime) -> str:
     if dt is None:
@@ -30,8 +29,6 @@ class D2D():
     def __init__(self):
         self.chunker = SemanticChunker()
         self.text_embedder = NomicEmbed()
-        self.image_embedder = NomicEmbededVison()
-        pass
 
     def __chunk_nodes_from_document(self, document: LlamaIndexDocument) -> List[TextNode]:
         """Chunks a document into a list of TextNodes.
@@ -40,13 +37,14 @@ class D2D():
         return nodes
 
 
-    def _convert_pdf_to_json(self, file_path:str):
-        """Converts pdf file to json form.
+    def _convert_pdf_to_dict(self, file_path: str) -> dict:
+        """Converts pdf file to dict.
         """
         pdf = PdfReader(file_path)
         metadata = pdf.metadata
         metadata = {
             'title': metadata.title,
+            'path': file_path,
             'author': metadata.author,
             'creator': metadata.creator,
             'creation_date': datetime_to_str(metadata.creation_date),
@@ -60,7 +58,8 @@ class D2D():
         text = self.__chunk_nodes_from_document(LlamaIndexDocument(text=text))
         text_embed: list[ndarray] = []
         for chunk in text:
-            text_embed.append(self.text_embedder._get_text_embedding(chunk.text))
+            quantized = binary_quantized(self.text_embedder._get_text_embedding(chunk.text))
+            text_embed.append(quantized)
         
         id = 'user_' + str(hash(file_path))
         pdf_json = {
@@ -69,23 +68,23 @@ class D2D():
             'content': {
                 f'{id}_text_{i}': {
                     'content': text[i].text,
-                    'embedding': text_embed[i].tolist()
+                    'embedding': text_embed[i]
                     }
                 for i in range(len(text))
             },
             'images': {
             }
         }
-        pdf_json = json.dumps(pdf_json)
         return pdf_json
     
-    def _convert_docx_to_json(self, file_path:str):
+    def _convert_docx_to_dict(self, file_path: str) -> dict:
         """Converts docx file to json form.
         """
         doc = Document(file_path)
         metadata = doc.core_properties
         metadata = {
             'title': metadata.title,
+            'path': file_path,
             'author': metadata.author,
             'category': metadata.category,
             'subject': metadata.subject,
@@ -103,7 +102,8 @@ class D2D():
         text = self.__chunk_nodes_from_document(LlamaIndexDocument(text=text))
         text_embed: list[ndarray] = []
         for chunk in text:
-            text_embed.append(self.text_embedder._get_text_embedding(chunk.text))
+            quantized = binary_quantized(self.text_embedder._get_text_embedding(chunk.text))
+            text_embed.append(quantized)
 
         id = 'user_' + str(hash(file_path))
         doc_json = {
@@ -112,41 +112,51 @@ class D2D():
             'content': {
                 f'{id}_text_{i}': {
                     'content': text[i].text,
-                    'embedding': text_embed[i].tolist()
+                    'embedding': text_embed[i]
                     }
                 for i in range(len(text))
             },
             'images': {
             }
         }
-        doc_json = json.dumps(doc_json)
         return doc_json
     
-    def convert_to_json(self, file_path:str) -> str | None:
+    def convert_to_dict(self, file_path: str) -> dict | None:
         """Converts file to json form.
         """
         if file_path.endswith('.pdf'):
-            return self._convert_pdf_to_json(file_path)
+            return self._convert_pdf_to_dict(file_path)
         elif file_path.endswith('.docx'):
-            return self._convert_docx_to_json(file_path)
+            return self._convert_docx_to_dict(file_path)
         else:
             print('Error: Unsupported file format.')
             return None
         
-    def save_to_disk(self, file_path:str, json_data:str) -> None:
+    def save_to_disk(self, file_path: str, data: dict) -> None:
         """Saves json data to disk.
         """
-        json_data = b64encode(json_data.encode())
-        with open(file_path, 'wb') as f:
-            f.write(json_data)
+        for id in data["content"]:
+            emb = data["content"][id]["embedding"]
+            base64 = binary_array_to_base64(emb)
+            data["content"][id]["embedding"] = base64
+        for id in data["images"]:
+            emb = data["images"][id]["embedding"]
+            base64 = float32_vector_to_base64(emb)
+            data["images"][id]["embedding"] = base64
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(data, indent=4))
 
-    def load_from_disk(self, file_path:str) -> str | None:
+    def load_from_disk(self, file_path:str) -> dict:
         """Loads json data from disk.
         """
-        try:
-            with open(file_path, 'rb') as f:
-                json_data = f.read()
-            return b64decode(json_data).decode()
-        except Exception as e:
-            print(f'Error: {e}')
-            return None
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        for id in data["content"]:
+            base64 = data["content"][id]["embedding"]
+            emb = base64_to_binary_array(base64)
+            data["content"][id]["embedding"] = emb
+        for id in data["images"]:
+            base64 = data["images"][id]["embedding"]
+            emb = base64_to_float32_vector(base64)
+            data["images"][id]["embedding"] = emb
+        return data
