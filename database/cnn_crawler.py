@@ -110,6 +110,8 @@ class CNNCrawler:
             os.makedirs(self.output_dir)
 
     def format_date(self, iso_date: str) -> str:
+        if iso_date is None:
+            return "Invalid date" 
         try:
             datetime_obj = datetime.strptime(iso_date, "%Y-%m-%dT%H:%M:%S.%fZ")
             return datetime_obj.strftime("%d/%m/%Y")
@@ -191,7 +193,7 @@ class CNNCrawler:
             "id": id,
             "metadata": metadata,
             content_key: self.extract_srt(soup, id) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup, id),
-            "images": self.extract_images(soup, id) if not "/videos/" in url and not "/video/" in url else None,
+            "images": self.extract_images(soup, id) if not "/videos/" in url and not "/video/" in url else {},
         }
 
         if post_data.get('pageStellarId', 'default') == None:
