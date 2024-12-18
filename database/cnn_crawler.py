@@ -8,6 +8,7 @@ import requests
 import json
 import os
 import sys
+import math
 from typing import List, Optional, Dict, Any,  Optional
 from datetime import datetime
 from dotenv import load_dotenv
@@ -15,7 +16,8 @@ SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(dotenv_path=f"{SYSTEM_PATH}/backend/.env")
 sys.path.append(SYSTEM_PATH)
 from backend.utils import *
-from backend import NomicEmbedVision, NomicEmbed
+from backend import NomicEmbedVision, NomicEmbed, SemanticChunker
+from llama_index.core.schema import Document as LlamaIndexDocument
 
 num_of_no_id_post = 1
 
@@ -83,13 +85,14 @@ class CNNCrawler:
         save_post_data_to_json(post_data: Dict[str, Any], filename: str) -> None:
             Saves the scraped article data to a JSON file in the output directory.
     """
-    def __init__(self, output_dir: str = "database/CNN", visited_links_file="visited_links.json", max_depth=10):
+    def __init__(self, output_dir: str = "resources/test-big-database/database/CNN", visited_links_file="visited_links.json", max_depth=10):
         self.output_dir = output_dir
         self.user_agent = UserAgent()
         self.visited_links_file = visited_links_file
         self.visited_links = self.load_visited_links()
         self.text_embed_model = NomicEmbed()
         self.vision_embed_model = NomicEmbedVision()
+        self.semantic_chunker = SemanticChunker(breakpoint_percentile_threshold=60)
         self.max_depth = max_depth
 
     def load_visited_links(self) -> set:
@@ -123,13 +126,10 @@ class CNNCrawler:
         return float32_vector_to_base64(img_embedding)
 
 
-    def scrape_post(self, url: str, current_depth: int = 0) -> None:
+    def scrape_post(self, url: str) -> None:
         if url in self.visited_links:
            print(f"visited{url}")
            return
-
-        if current_depth > self.max_depth:
-            return
         
         global num_of_no_id_post
         try:
@@ -161,7 +161,7 @@ class CNNCrawler:
 
         stellar_id = self.extract_page_stellar_id(soup)
 
-        id = "cnn_" + stellar_id 
+        id = "cnn_" + stellar_id if stellar_id else "None"
 
         publish_date = self.extract_meta_content(soup, 'article:published_time')
 
@@ -170,9 +170,10 @@ class CNNCrawler:
         metadata: Dict[str, Any] = {
             "url": url,
             "pageStellarId": self.extract_page_stellar_id(soup),
-            "author": self.extract_author_profile(soup),
+            "author_url": self.extract_author_profile_link(soup),
             id:  {
                 "title": self.extract_title(soup),
+                "author": self.extract_author_name(soup),
                 "publish_date": self.format_date(publish_date),
                 "last_update_date": self.format_date(last_update_date),
             }
@@ -184,13 +185,13 @@ class CNNCrawler:
 
         metadata[id]["embedding"] = self.get_embed_text(embedding)
 
-        content_key = "script" if "/videos/" in url or "/video/" in url else "content"
+        content_key = "content"
 
         post_data: Dict[str, Any] = {
             "id": id,
             "metadata": metadata,
             content_key: self.extract_srt(soup, id) if "/videos/" in url or "/video/" in url else self.extract_article_paragraphs(soup, id),
-            "images": self.extract_images(soup, id),
+            "images": self.extract_images(soup, id) if not "/videos/" in url and not "/video/" in url else None,
         }
 
         if post_data.get('pageStellarId', 'default') == None:
@@ -202,6 +203,8 @@ class CNNCrawler:
 
         self.visited_links.add(url)
         self.save_visited_links()
+
+        return post_data
 
         #self.scrape_related_links(soup, current_depth + 1)
 
@@ -235,23 +238,25 @@ class CNNCrawler:
         title_tag = soup.find('title')
         return title_tag.get_text(strip=True) if title_tag else None
 
-    def extract_author_profile(self, soup: BeautifulSoup) -> Optional[str]:
+    def extract_author_profile_link(self, soup: BeautifulSoup) -> Optional[str]:
         author_link_tag = soup.find('a', class_='byline__link')
         if author_link_tag:
-            return author_link_tag['href'] 
+            return author_link_tag['href']
+        return None
 
+    def extract_author_name(self, soup: BeautifulSoup) -> Optional[str]:
         byline_names_div = soup.find('div', class_='byline__names')
         if byline_names_div:
             name_span = byline_names_div.find('span', class_='byline__name')
             if name_span:
                 return name_span.get_text(strip=True)
-        
+        return None
 
     def extract_meta_content(self, soup: BeautifulSoup, property_name: str) -> Optional[str]:
         meta_tag = soup.find('meta', {'property': property_name})
         return meta_tag['content'] if meta_tag else None
 
-    def extract_article_paragraphs(self, soup: BeautifulSoup, ID: str) -> List[str]:
+    def extract_article_paragraphs(self, soup: BeautifulSoup, ID: str) -> Dict[str, Dict[str, Any]]:
         paragraphs: Dict[str, Any] = {}
         paragraph_tags = soup.find_all('p', class_='paragraph inline-placeholder vossi-paragraph')
         if not paragraph_tags:
@@ -259,9 +264,16 @@ class CNNCrawler:
         if not paragraph_tags:
             fallback_div = soup.find('div', class_='video-resource__description')
             if fallback_div:
-                paragraph_tags = fallback_div.find_all('p')  
-        for i, p_tag in enumerate(paragraph_tags, start=1):
-            text = p_tag.get_text(strip=True)
+                paragraph_tags = fallback_div.find_all('p')
+
+        merged_text = "\n".join(p_tag.get_text(strip=True) for p_tag in paragraph_tags if p_tag.get_text(strip=True))
+
+        document =  LlamaIndexDocument(text=merged_text)
+
+        nodes = self.semantic_chunker.chunk_nodes_from_documents([document])
+        
+        for i, node in enumerate(nodes, start=1):
+            text = node.text.strip()
             if text:
                 paragraph: Dict[str, Any] = {
                     "content": text,
@@ -269,12 +281,15 @@ class CNNCrawler:
                 }
                 key = f"{ID}_text_{i}"
                 paragraphs[key] = paragraph
+
         return paragraphs
 
     def extract_images(self, soup: BeautifulSoup, ID:str) -> List[Dict[str, str]]:
         images_infos : Dict[str, Any] = {}
-        img_tags = soup.find_all('img')
+        img_tags = soup.find_all('img', class_='image__dam-img')
         for i,img_tag in enumerate(img_tags, start=1):
+            if img_tag.find_parent(class_='related-content') or img_tag.find_parent(class_='video-resource__image') or img_tag.find_parent(class_='container__item-media') or img_tag.find_parent(class_='image__related-content'):
+                continue
             image_url = img_tag.get('src')
             image_alt = img_tag.get('alt')
             if image_url and image_alt and "http" in image_url:
@@ -287,7 +302,8 @@ class CNNCrawler:
                 images_infos[key] = images_info
         return images_infos
     
-    def extract_srt(self, soup: BeautifulSoup, ID: str) -> Optional[dict]:
+    def extract_srt(self, soup: BeautifulSoup, ID: str) -> List[Dict[str, str]]:
+        paragraphs: Dict[str, Any] = {}
         script_tag = soup.find('script', type='application/ld+json')
         if script_tag:
             try:
@@ -301,14 +317,36 @@ class CNNCrawler:
                                 if caption.get("encodingFormat") == "srt":
                                     url = caption.get("url")
                                     subtitle = self.get_text_from_srt(url)
-                                    return {f"{ID}_script": subtitle, "embedding": self.get_embed_text(subtitle)}
+                                    document =  LlamaIndexDocument(text=subtitle)
+                                    nodes = self.semantic_chunker.chunk_nodes_from_documents([document])
+                                    for i, node in enumerate(nodes, start=1):
+                                        text = node.text.strip()
+                                        if text:
+                                            paragraph: Dict[str, Any] = {
+                                                "content": text,
+                                                "embedding": self.get_embed_text(text)
+                                            }
+                                            key = f"{ID}_text_{i}"
+                                            paragraphs[key] = paragraph
+                                    return paragraphs
                 elif isinstance(data, dict):
                     captions = data.get("caption", [])
                     for caption in captions:
                         if caption.get("encodingFormat") == "srt":
                             url = caption.get("url")
                             subtitle = self.get_text_from_srt(url)
-                            return {f"{ID}_script": subtitle, "embedding": self.get_embed_text(subtitle)}
+                            document =  LlamaIndexDocument(text=subtitle)
+                            nodes = self.semantic_chunker.chunk_nodes_from_documents([document])
+                            for i, node in enumerate(nodes, start=1):
+                                text = node.text.strip()
+                                if text:
+                                    paragraph: Dict[str, Any] = {
+                                        "content": text,
+                                        "embedding": self.get_embed_text(text)
+                                    }
+                                    key = f"{ID}_text_{i}"
+                                    paragraphs[key] = paragraph
+                            return paragraphs
             except json.JSONDecodeError:
                 return None
         return None
@@ -418,6 +456,7 @@ class CNNSearcher:
     """
     def __init__(self, base_url: str = "https://edition.cnn.com/search"):
         self.base_url = base_url
+        self.scrawler =  CNNCrawler()
 
     def search(self, keyword: str, size: int = 10, page: int = 1, sort: str = "newest") -> List[str]:
         start_index = (page - 1) * size
@@ -444,11 +483,28 @@ class CNNSearcher:
                 href = element.get_attribute("href")
                 if href:
                     full_url = href if href.startswith("http") else f"https://edition.cnn.com{href}"
-                    if full_url not in result_links:
+                    if full_url not in result_links and "/live-news/" not in full_url:
                         result_links.append(full_url)
-            print(result_links)
             return result_links
         finally:
             driver.quit()
+
+    def search_posts(self, keyword: str, size: int = 10):
+        links = []
+        page_count = math.ceil(size / 10)
+
+        for page in range(1, page_count + 1):
+            current_size = min(size - len(links), 10)
+            page_links = self.search(keyword=keyword, size=current_size, page=page, sort="newest")
+            links.extend(page_links)
+            if len(links) >= size:
+                break
+
+        links = links[:size]
+
+        contents = [self.scrawler.scrape_post(link) for link in links]
+
+        return contents
+
     
     
