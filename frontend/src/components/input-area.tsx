@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from 'lucide-react'
 
 interface InputAreaProps {
   onSendMessage: (content: string) => void
+  preprocessedQuery: string | null
+  disabled?: boolean
 }
 
-export function InputArea({ onSendMessage }: InputAreaProps) {
+export function InputArea({ onSendMessage, preprocessedQuery, disabled }: InputAreaProps) {
   const [input, setInput] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -16,6 +18,12 @@ export function InputArea({ onSendMessage }: InputAreaProps) {
     onSendMessage(input)
     setInput('')
   }
+
+  useEffect(() => {
+    if (preprocessedQuery) {
+      setInput(preprocessedQuery)
+    }
+  }, [preprocessedQuery]);
 
   return (
     <form onSubmit={handleSubmit} className="p-4 border-t bg-white">
@@ -26,8 +34,9 @@ export function InputArea({ onSendMessage }: InputAreaProps) {
           onChange={(e) => setInput(e.target.value)}
           className="flex-grow"
           rows={1}
+          disabled={disabled}
         />
-        <Button type="submit">
+        <Button type="submit" disabled={disabled}>
           <Send className="h-4 w-4" />
           <span className="sr-only">Send</span>
         </Button>

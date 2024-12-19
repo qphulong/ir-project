@@ -45,7 +45,7 @@ def ping():
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
 
-@api.route('/api/text/<fragment_id>', methods=['GET'])
+@api.route('/api/texts/<fragment_id>', methods=['GET'])
 def get_text(fragment_id: str):
     """
     Flask API endpoint to retrieve a text document using fragement id.
@@ -79,8 +79,8 @@ def process_query():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-@api.route('/api/search_text_query', methods=['POST'])
-def search_text_query():
+@api.route('/api/preprocess-query', methods=['POST'])
+def preprocess_query():
     """
     Flask API endpoint for the NaiveRAG system.
     Accepts a POST request with JSON payload containing the user query.

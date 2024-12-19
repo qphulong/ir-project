@@ -33,11 +33,14 @@ export default function ChatInterface() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+  const [isInputAreaDisabled, setIsInputAreaDisabled] = useState(false)
 
   // State to hold documents returned from the API
   const [documents, setDocuments] = useState<Document[]>([])
   // Control whether documents are shown in the right sidebar
   const [showDocuments, setShowDocuments] = useState(true);
+  // State to hold the preprocessed query
+  const [preprocessedQuery, setPreprocessedQuery] = useState<string | null>(null);
 
 
 
@@ -63,6 +66,10 @@ export default function ChatInterface() {
   useEffect(() => {
     if (conversations.length > 0) {
       localStorage.setItem('conversations', JSON.stringify(conversations))
+      setIsInputAreaDisabled(false)
+    } else {
+      localStorage.removeItem('conversations')
+      setIsInputAreaDisabled(true)
     }
   }, [conversations])
 
@@ -121,7 +128,7 @@ export default function ChatInterface() {
       if (data.texts && data.texts.documents) {
         const newDocuments: Document[] = data.texts.documents.map((doc: string, index: number) => ({
           id: data.texts.fragment_ids[index],
-          snippet: doc.substring(0, 100) + (doc.length > 100 ? '...' : ''),
+          snippet: doc
         }))
         setDocuments(newDocuments)
       }
@@ -187,6 +194,13 @@ export default function ChatInterface() {
         deleteConversation={deleteConversation}
         isOpen={leftSidebarOpen}
         setShowDocuments={setShowDocuments}
+        onPreprocessQuery={(query, action) => {
+          if (action === 'append') {
+            setPreprocessedQuery(preprocessedQuery ? `${preprocessedQuery} ${query}` : query)
+          } else {
+            setPreprocessedQuery(query)
+          }
+        }}
       />
       <Button
         variant="outline"
@@ -205,7 +219,7 @@ export default function ChatInterface() {
         rightSidebarOpen ? 'mr-64' : 'mr-0'
       }`}>
         <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />
-        <InputArea onSendMessage={addMessage} />
+        <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isInputAreaDisabled}/>
       </div>
       <Button
         variant="outline"

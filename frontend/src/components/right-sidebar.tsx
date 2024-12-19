@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { api } from '@/api'
+import { Spinner } from '@/components/ui/spinner'
+import { DialogDescription } from '@radix-ui/react-dialog'
 
 interface Document {
   id: number
@@ -23,7 +25,7 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
 
   async function getText() {
     try {
-      const response = await api.get(`/api/text/${selectedDocument?.id}`);
+      const response = await api.get(`/api/texts/${selectedDocument?.id}`);
       setText(response.data.text);
     } catch (error) {
       console.error(error);
@@ -33,7 +35,9 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
 
   useEffect(() => {
     setText(null);
-    // getText();
+    if (selectedDocument) {
+      getText();
+    }
   }, [selectedDocument]);
 
   if (!isOpen) return null
@@ -49,23 +53,24 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
                 <DialogTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="w-full justify-start mb-2 text-left"
+                    className="w-full justify-start h-full text-left hover:bg-gray-200"
                     onClick={() => setSelectedDocument(doc)}
                   >
-                    <span className="block truncate">{doc.snippet}</span>
+                    <div className='line-clamp-3 text-wrap'>{doc.snippet}</div>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[80vh] w-full sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Document Details</DialogTitle>
+                    <DialogDescription></DialogDescription>
                   </DialogHeader>
                   {/* Make the dialog content scrollable */}
                   {text ?
                   <ScrollArea className="mt-4 max-h-[60vh]">
-                    <p>{text}</p>
+                    <p className="whitespace-pre-line	text-justify">{text}</p>
                   </ScrollArea> : 
-                  <div className="flex">
-                    Loading...
+                  <div className="flex items-center justify-center">
+                    <Spinner />
                   </div>}
                 </DialogContent>
               </Dialog>

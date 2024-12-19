@@ -3,7 +3,7 @@ import { Conversation } from './chat-interface'
 import { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { PlusCircle, Pencil, Trash2, Search } from 'lucide-react'
+import { PlusCircle, Pencil, Search, Replace, PlusCircleIcon } from 'lucide-react'
 // import { Conversation } from './chatgpt-like-interface'
 import {
   DropdownMenu,
@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dialog"
 
 import { api } from '@/api'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Progress } from '@/components/ui/progress'
 interface SidebarProps {
   conversations: Conversation[]
   currentConversation: Conversation | null
@@ -31,6 +33,7 @@ interface SidebarProps {
   deleteConversation: (id: number) => void
   setShowDocuments: (showDocuments: boolean) => void
   isOpen: boolean
+  onPreprocessQuery: (query: string, action: "append" | "replace") => void
 }
 
 export function Sidebar({ 
@@ -40,14 +43,15 @@ export function Sidebar({
   startNewConversation,
   renameConversation,
   deleteConversation,
-  setShowDocuments,
-  isOpen
+  // setShowDocuments,
+  isOpen,
+  onPreprocessQuery
 }: SidebarProps) {
-  const [editingId, setEditingId] = useState<number | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<string[]>([])
   const searchResultsRef = useRef<HTMLUListElement>(null)
+  const [searchState, setSearchState] = useState<"idle" | "loading" | "error">("idle")
 
   useEffect(() => {
     if (searchResultsRef.current) {
@@ -66,16 +70,18 @@ export function Sidebar({
 
     let results =[]
     try {
+      setSearchState("loading")
       // Call the updated API endpoint
-      const response = await api.post('/api/search_text_query', { query: searchQuery })
+      const response = await api.post('/api/preprocess-query', { query: searchQuery })
       if (!response.data) {
         throw new Error('Failed to fetch response from API')
       }
       const data = response.data
       results = data.response
-
+      setSearchState("idle")
     }
     catch (error) {
+      setSearchState("error")
       results.push('Failed to fetch response from API')
     }
 
@@ -165,19 +171,42 @@ export function Sidebar({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-gray-800 text-white placeholder-gray-400 border-gray-700"
           />
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" type='submit'>
+            <Search />
+          </button>
         </form>
         {searchResults.length > 0 && (
           <ScrollArea className="h-40 overflow-y-auto">
             <ul ref={searchResultsRef} className="space-y-1">
               {searchResults.map((result, index) => (
-                <li key={index} className="text-sm text-gray-300 hover:bg-gray-800 p-1 rounded">
-                  {result}
+                <li key={index} className="relative text-sm text-gray-300 hover:bg-gray-800 p-1 rounded group">
+                  <div className="relative z-0">{result}</div>
+                  {searchState !== "error" && <div className="absolute z-10 top-0 bottom-0 right-0 hidden items-center group-hover:flex group-hover:bg-gray-800">
+                    <TooltipProvider delayDuration={350} skipDelayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger onClick={() => onPreprocessQuery(result, "append")}>
+                          <PlusCircleIcon className="mr-1 rounded p-1 hover:text-white hover:bg-green-500 cursor-pointer"/>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          Append
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger onClick={() => onPreprocessQuery(result, "replace")}>
+                          <Replace className="rounded p-1 hover:text-white hover:bg-red-500 cursor-pointer"/>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          Replace
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>}
                 </li>
               ))}
             </ul>
           </ScrollArea>
         )}
+        <Progress indeterminate className={"mt-2" + (searchState !== "loading" ? " bg-transparent [&_*]:bg-transparent" : "")} />
       </div>
     </div>
   )
