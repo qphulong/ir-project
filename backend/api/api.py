@@ -4,13 +4,12 @@ import json
 from flask import Flask, render_template, request, jsonify
 # from backend import NaiveRAG
 from llama_index.core.schema import Document as LLamaDocument
+from backend import Application
 
 SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
-
-
-
+application = Application()
 api = Flask(__name__)
 
 __all__ = ['api', 'ping', 'process_query']
@@ -45,8 +44,20 @@ def ping():
 #         return jsonify({"query": user_query, "response": answer}), 200
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
-    
-@api.route('/api/process_query', methods=['POST'])
+
+@api.route('/api/text/<fragment_id>', methods=['GET'])
+def get_text(fragment_id: str):
+    """
+    Flask API endpoint to retrieve a text document using fragement id.
+    """
+    try:
+        # Get the document using the fragment id
+        text = application.get_all_text_from_fragment_id(fragment_id)
+        return jsonify({"text": text}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api.route('/api/process-query', methods=['POST'])
 def process_query():
 
     """
@@ -57,8 +68,6 @@ def process_query():
         # Get JSON data from request
         data = request.get_json()
         user_query = data.get("query", "")
-        from backend import Application
-        application = Application()
         if not user_query:
             return jsonify({"error": "Query not provided"}), 400
         
@@ -66,7 +75,7 @@ def process_query():
         # answer = naive_rag.process_query(user_query)
         answer = application.process_query(user_query)
         # print(answer)
-        return jsonify(answer), 200
+        return answer, 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
@@ -80,15 +89,12 @@ def search_text_query():
         # Get JSON data from request
         data = request.get_json()
         user_query = data.get("query", "")
-        from backend import Application
-        application = Application()
         if not user_query:
             return jsonify({"error": "Query not provided"}), 400
         
         # Process the user query through NaiveRAG
         # answer = naive_rag.process_query(user_query)
         answer = application.preprocess_query(user_query)
-        print(answer)
         # return jsonify(answer), 200
         return jsonify({"response": answer}), 200
     except Exception as e:
@@ -100,8 +106,6 @@ def search_text_query():
 @api.route('/', defaults={'path': ''})
 @api.route('/<path:path>')
 def catch_all(path):
-    from backend import Application
-    application = Application()
     entry_path = os.getenv('VITE_ENTRY_PATH')
     if entry_path is not None:
         # Development mode

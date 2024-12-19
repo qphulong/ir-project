@@ -92,7 +92,7 @@ export default function ChatInterface() {
 
     try {
       // Call the updated API endpoint
-      const response = await api.post('/api/process_query', { query: content })
+      const response = await api.post('/api/process-query', { query: content })
 
       if (!response.data) {
         throw new Error('Failed to fetch response from API')
@@ -120,10 +120,8 @@ export default function ChatInterface() {
       // Process documents returned by the API
       if (data.texts && data.texts.documents) {
         const newDocuments: Document[] = data.texts.documents.map((doc: string, index: number) => ({
-          id: index + 1,
+          id: data.texts.fragment_ids[index],
           snippet: doc.substring(0, 100) + (doc.length > 100 ? '...' : ''),
-          // content: doc
-          content: data.texts.score_points[index]
         }))
         setDocuments(newDocuments)
       }

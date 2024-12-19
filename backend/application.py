@@ -133,8 +133,8 @@ class Application():
         # get query_embedding and search images space
         result = {
             "texts": {
-            "documents": [],
-            "score_points": []
+                "documents": [],
+                "fragment_ids": []
             },
             # "metadatas": {
             #     "documents": [],
@@ -156,10 +156,7 @@ class Application():
         # Search text space
         texts, text_score_points = self.retriever.search_text_space(query_embedding)
         result["texts"]["documents"] = texts
-        # result["texts"]["score_points"] = text_score_points.id
-        # each text_score_points is a ScoredPoint object, which has id, is stored in the result["texts"]["score_points"]
-        for i, text_score_point in enumerate(text_score_points):
-            result["texts"]["score_points"].append(self._get_all_text_from_fragment_id(text_score_point.id))
+        result["texts"]["fragment_ids"] = [text_score_point.id for text_score_point in text_score_points]
 
         # Attempt to generate an informative response from text results
         document_str = ""
@@ -193,7 +190,8 @@ class Application():
         # Re-search text space after internet search
         texts, text_score_points = self.retriever.search_text_space(query_embedding)
         result["texts"]["documents"] = texts
-        result["texts"]["score_points"] = text_score_points
+        # Get ids from text_score_points
+        result["texts"]["fragment_ids"] = [text_score_point.id for text_score_point in text_score_points]
 
         document_str = ""
         for i, text in enumerate(texts):
@@ -298,7 +296,7 @@ class Application():
         )
         return search_results
     
-    def _get_all_text_from_fragment_id(self, point_id:str) -> str:
+    def get_all_text_from_fragment_id(self, point_id:str) -> str:
         """
         Get all document content base on the id of that document elements
         

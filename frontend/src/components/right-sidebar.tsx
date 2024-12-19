@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { api } from '@/api'
 
 interface Document {
   id: number
   snippet: string
-  content: string
 }
 
 interface RightSidebarProps {
@@ -15,8 +15,26 @@ interface RightSidebarProps {
   showDocuments: boolean
 }
 
+const NO_TEXT_AVAILABLE = "No text available";
+
 export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarProps) {
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [text, setText] = useState<string | null>(null);
+
+  async function getText() {
+    try {
+      const response = await api.get(`/api/text/${selectedDocument?.id}`);
+      setText(response.data.text);
+    } catch (error) {
+      console.error(error);
+      setText(NO_TEXT_AVAILABLE);
+    }
+  }
+
+  useEffect(() => {
+    setText(null);
+    // getText();
+  }, [selectedDocument]);
 
   if (!isOpen) return null
 
@@ -42,9 +60,13 @@ export function RightSidebar({ documents, isOpen, showDocuments }: RightSidebarP
                     <DialogTitle>Document Details</DialogTitle>
                   </DialogHeader>
                   {/* Make the dialog content scrollable */}
+                  {text ?
                   <ScrollArea className="mt-4 max-h-[60vh]">
-                    <p>{doc.content}</p>
-                  </ScrollArea>
+                    <p>{text}</p>
+                  </ScrollArea> : 
+                  <div className="flex">
+                    Loading...
+                  </div>}
                 </DialogContent>
               </Dialog>
             ))}
