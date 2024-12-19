@@ -20,7 +20,7 @@ export function InputArea({ onSendMessage, preprocessedQuery, disabled }: InputA
   }
 
   useEffect(() => {
-    if (preprocessedQuery) {
+    if (preprocessedQuery && !disabled) {
       setInput(preprocessedQuery)
     }
   }, [preprocessedQuery]);
