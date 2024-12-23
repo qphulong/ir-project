@@ -9,6 +9,10 @@ from qdrant_client.conversions.common_types import ScoredPoint
 from typing import List
 import os
 import json
+from numpy import ndarray
+from PIL.ImageFile import ImageFile
+from .D2D import D2D
+from .nomic_embed_vision import NomicEmbedVision
 
 class Application():
     """
@@ -36,6 +40,38 @@ class Application():
             self.text_embed_model = NomicEmbed()
             self.query_preprocessor = QueryPreprocessor()
             self.initialized = True
+
+    def insert_doc(self,path:str)->None:
+        """Save the document in the database path (./resources/quantized-db) 
+        and upload the vectors to vector space
+
+        Args: 
+            - path (str): file path
+        Returns:
+            - None
+
+        Guilde
+        1. Save the json in database path (retriever.database_path)
+        2. For each chunked text, load that id + vector to retriever.text_space
+        using self.retriever.add_point_to_text_space(point_id=,vector=)
+        """
+        try:
+            data = self._load_doc(path)
+        except:
+            print(f"ERROR: Cannot load data from {path}")
+            return
+        self._save_data(os.path.join(self.retriever.database_path, f"{data['id']}.json"), data)
+        for key, value in data['content'].items():
+            point_id = key
+            vector = value['embedding']
+            vector = base64_to_binary_array(vector)
+            self.retriever.add_point_to_text_space(point_id=point_id,vector=vector)
+        """Uncomment this if you want to add image vectors to image space and D2D support image (currently not)
+        for key, value in data['images'].items():
+            point_id = key
+            vector = value['embedding']
+            self.retriever.add_point_to_image_space(point_id=point_id,vector=vector)"""
+
 
     def begin(self):
         """
@@ -65,59 +101,59 @@ class Application():
             
             # search text space
             texts, text_score_points  = self.retriever.search_text_space(query_embedding)
-            pprint("This is the list of text show up on the right scroll box")
-            pprint(texts)
-            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
-            pprint(text_score_points)
             document_str = ""
             for i,text in enumerate(texts):
                 document_str += f"Document {i}:\n{text}\n\n"
             response = self.generator.check_informative(user_query=query,documents_str=document_str)
             if response != 'False': # If response if informative, continue to next loop/question
+                pprint("This is the list of text show up on the right scroll box")
+                pprint(texts)
+                pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+                pprint(text_score_points)
                 print(response)
                 continue
             
             # search metadata space
             metadatas,metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
-            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
-            pprint(metadatas)
-            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
-            pprint(metadatas_score_points)
             document_str = ""
             for i,metadata in enumerate(metadatas):
                 document_str += f"Document {i}:\n{metadata}\n\n"
             response = self.generator.check_informative(user_query=query,documents_str=document_str)
             if response != 'False': # If response if informative, continue to next loop/question
+                pprint("This is the list of text show up on the right scroll box")
+                pprint(metadatas)
+                pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+                pprint(metadatas_score_points)
                 print(response)
                 continue
             
             # if both search fail, search internet and try again
             search_query = self.query_preprocessor.process_query_for_search(query)
-            self.search_internet(search_query=search_query)
+            self.search_internet(search_query=search_query) # @Hao
 
             # Re-search vector store
             texts, text_score_points  = self.retriever.search_text_space(query_embedding)
-            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
-            pprint(texts)
-            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
-            pprint(text_score_points)
             document_str = ""
             for i,text in enumerate(texts):
                 document_str += f"Document {i}:\n{text}\n\n"
             response = self.generator.check_informative(user_query=query,documents_str=document_str)
             if response != 'False': # If response if informative, continue to next loop/question
+                pprint("This is the list of text show up on the right scroll box")
+                pprint(texts)
+                pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+                pprint(text_score_points)
                 print(response)
                 continue   
 
             metadatas,metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
-            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
-            pprint(metadatas)
-            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
-            pprint(metadatas_score_points)
             document_str = ""
             for i,metadata in enumerate(metadatas):
                 document_str += f"Document {i}:\n{metadata}\n\n"
             response = self.generator.generate(query,document_str)
+            pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
+            pprint(metadatas)
+            pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+            pprint(metadatas_score_points)
             print(response)
 
     def process_query(self, query:str):
@@ -226,7 +262,7 @@ class Application():
         return result
 
     
-    def search_internet(self,search_query:str,n_cnn:int=4,n_medium:int=4):
+    def search_internet(self,search_query:str,n_cnn:int=6,n_medium:int=4):#@Hao
         """
         Function to crawl realtime posts on CNN and medium
 

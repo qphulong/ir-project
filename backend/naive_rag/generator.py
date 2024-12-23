@@ -20,7 +20,7 @@ class Generator():
                 },
                 {
                     "role": "user",
-                    "content": f"Query: {user_query}\nDocuments:\n{documents_str}"
+                    "content": f"User query: {user_query}\nDocuments:\n{documents_str}"
                 }
             ]
         )
@@ -44,7 +44,7 @@ class Generator():
                 {"role": "system", 
                  "content": """You are an assistant for question-answering tasks.
                     The user will provide their query and documents.
-                    Use the provided documents to answer the question.
+                    Use the provided documents to answer user question.
                     If the document does not provide enough information, please response with a single word 'False'.
                 """
                 },
