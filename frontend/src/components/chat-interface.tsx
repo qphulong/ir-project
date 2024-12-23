@@ -6,8 +6,7 @@ import { ChatArea } from './chat-area'
 import { InputArea } from './input-area'
 import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-
-import { api } from '../api/index'
+import useWebSocket, { ReadyState } from "react-use-websocket"
 
 export interface Message {
   id: number
@@ -27,6 +26,15 @@ interface Document {
   content: string
 }
 
+enum QueryState {
+  NONE,
+  SEARCHING_LOCAL,
+  SEARCHING_INTERNET,
+  PENDING,
+  SUCCESS,
+  ERROR
+}
+
 export default function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
@@ -34,6 +42,9 @@ export default function ChatInterface() {
   const [isTyping, setIsTyping] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
   const [isInputAreaDisabled, setIsInputAreaDisabled] = useState(false)
+  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket("ws://localhost:4000/api/process-query", {
+    share: true
+  });
 
   // State to hold documents returned from the API
   const [documents, setDocuments] = useState<Document[]>([])
@@ -42,7 +53,65 @@ export default function ChatInterface() {
   // State to hold the preprocessed query
   const [preprocessedQuery, setPreprocessedQuery] = useState<string | null>(null);
 
-
+  useEffect(() => {
+    if (readyState === ReadyState.OPEN) {
+      console.log("WebSocket connection established");
+    }
+  }, [readyState]);
+  
+  useEffect(() => {
+    if (lastJsonMessage && currentConversation) {
+      const message = lastJsonMessage as any;
+      switch (message.state) {
+        case QueryState.SEARCHING_LOCAL:
+          setIsTyping(true);
+          break;
+        case QueryState.SUCCESS:
+          const assistantMessage: Message = {
+            id: currentConversation.messages.length + 1,
+            content: message.result.final_response,
+            role: 'assistant'
+          }
+    
+          const updatedConversation = {
+            ...currentConversation,
+            messages: [...currentConversation.messages, assistantMessage]
+          }
+    
+          setCurrentConversation(updatedConversation)
+          setConversations(conversations.map(conv =>
+            conv.id === currentConversation.id ? updatedConversation : conv
+          ))
+    
+          // Process documents returned by the API
+          if (message.result.texts && message.result.texts.documents) {
+            const newDocuments: Document[] = message.result.texts.documents.map((doc: string, index: number) => ({
+              id: message.result.texts.fragment_ids[index],
+              snippet: doc
+            }))
+            setDocuments(newDocuments)
+          }
+          setIsTyping(false)
+          break;
+        case QueryState.ERROR:
+          const errorMessage: Message = {
+            id: currentConversation.messages.length + 1,
+            content: "I'm sorry, I encountered an error while processing your request.",
+            role: 'assistant'
+          }
+          const finalConversation = {
+            ...currentConversation,
+            messages: [...currentConversation.messages, errorMessage]
+          }
+          setCurrentConversation(finalConversation)
+          setConversations(conversations.map(conv =>
+            conv.id === currentConversation.id ? finalConversation : conv
+          ))
+          setIsTyping(false)
+          break;
+      }
+    }
+  }, [lastJsonMessage]);
 
   useEffect(() => {
     const savedConversations = localStorage.getItem('conversations')
@@ -95,62 +164,7 @@ export default function ChatInterface() {
       conv.id === currentConversation.id ? updatedConversation : conv
     ))
 
-    setIsTyping(true)
-
-    try {
-      // Call the updated API endpoint
-      const response = await api.post('/api/process-query', { query: content })
-
-      if (!response.data) {
-        throw new Error('Failed to fetch response from API')
-      }
-
-      const data = response.data
-
-      // The API now returns `final_response` instead of `response`
-      const assistantMessage: Message = {
-        id: updatedConversation.messages.length + 1,
-        content: data.final_response,
-        role: 'assistant'
-      }
-
-      const finalConversation = {
-        ...updatedConversation,
-        messages: [...updatedConversation.messages, assistantMessage]
-      }
-
-      setCurrentConversation(finalConversation)
-      setConversations(conversations.map(conv =>
-        conv.id === currentConversation.id ? finalConversation : conv
-      ))
-
-      // Process documents returned by the API
-      if (data.texts && data.texts.documents) {
-        const newDocuments: Document[] = data.texts.documents.map((doc: string, index: number) => ({
-          id: data.texts.fragment_ids[index],
-          snippet: doc
-        }))
-        setDocuments(newDocuments)
-      }
-
-    } catch (error) {
-      console.error('Error fetching response:', error)
-      const errorMessage: Message = {
-        id: updatedConversation.messages.length + 1,
-        content: "I'm sorry, I encountered an error while processing your request.",
-        role: 'assistant'
-      }
-      const finalConversation = {
-        ...updatedConversation,
-        messages: [...updatedConversation.messages, errorMessage]
-      }
-      setCurrentConversation(finalConversation)
-      setConversations(conversations.map(conv =>
-        conv.id === currentConversation.id ? finalConversation : conv
-      ))
-    } finally {
-      setIsTyping(false)
-    }
+    sendJsonMessage({ query: content })
   }
 
   const startNewConversation = () => {

@@ -13,6 +13,7 @@ from numpy import ndarray
 from PIL.ImageFile import ImageFile
 from .D2D import D2D
 from .nomic_embed_vision import NomicEmbedVision
+from .query_session import QuerySession, QueryState
 
 class Application():
     """
@@ -156,7 +157,7 @@ class Application():
             pprint(metadatas_score_points)
             print(response)
 
-    def process_query(self, query:str):
+    async def process_query(self, query: str):
         """
         Chat with retrieval system (stand-alone questions answering, 
         conversation not supported)
@@ -202,8 +203,7 @@ class Application():
         if response != 'False':
             result["final_response"] = response
             result["search_phase"] = "text_space"
-            
-            return result
+            return QuerySession(QueryState.SUCCESS, result)
 
         # # Search metadata space if text not informative enough
         metadatas, metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
@@ -217,7 +217,7 @@ class Application():
         if response != 'False':
             result["final_response"] = response
             result["search_phase"] = "metadata_space"
-            return result
+            return QuerySession(QueryState.SUCCESS, result)
 
         # If both text and metadata search fail, try internet search
         search_query = self.query_preprocessor.process_query_for_search(query)
@@ -236,7 +236,7 @@ class Application():
         if response != 'False':
             result["final_response"] = response
             result["search_phase"] = "text_space_after_internet"
-            return result
+            return QuerySession(QueryState.SUCCESS, result)
 
         # If still not informative, re-search metadata space after internet search
         metadatas, metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
@@ -259,7 +259,7 @@ class Application():
         #     document_str += f"Document {i}:\n{metadata}\n\n"
         # response = self.generator.generate(query,document_str)
         result["final_response"] = response
-        return result
+        return QuerySession(QueryState.SUCCESS, result)
 
     
     def search_internet(self,search_query:str,n_cnn:int=6,n_medium:int=4):#@Hao

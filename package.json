@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "scripts": {
     "sync:frontend": "cd ./frontend && npm install",
-    "dev:backend": "py ./main.py",
+    "dev:backend": "python ./main.py",
     "dev:frontend": "cd ./frontend && npm run dev",
-    "dev": "cross-env FLASK_ENV=development concurrently -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build:frontend": "cd ./frontend && npm run build",
-    "build": "cross-env FLASK_ENV=production npm run build:frontend"
+    "build": "npm run build:frontend"
   },
   "author": "",
   "license": "ISC",

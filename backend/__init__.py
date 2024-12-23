@@ -7,4 +7,5 @@ from .naive_rag import Retriever, NaiveRAG, Generator
 from .utils import *
 from .binary_quantized_rag import *
 from .application import Application
+from .query_session import *
 from .api import api
