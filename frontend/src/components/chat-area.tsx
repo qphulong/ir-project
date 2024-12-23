@@ -1,4 +1,3 @@
-import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Message } from './chat-interface'
 
@@ -14,10 +13,10 @@ export function ChatArea({ messages, isTyping }: ChatAreaProps) {
       {messages.map((message) => (
         <div
           key={message.id}
-          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          className={`flex mb-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
         >
           <div
-            className={`max-w-[70%] rounded-lg p-3 ${
+            className={`text-justify max-w-[70%] rounded-lg p-3 ${
               message.role === 'user'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-200 text-gray-800'

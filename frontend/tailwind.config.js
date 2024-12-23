@@ -54,7 +54,17 @@ export default {
 					'4': 'hsl(var(--chart-4))',
 					'5': 'hsl(var(--chart-5))'
 				}
-			}
+			},
+			keyframes: {
+				progress: {
+					"0%": { transform: "translateX(0) scaleX(0)" },
+					"40%": { transform: "translateX(0) scaleX(0.4)" },
+					"100%": { transform: "translateX(100%) scaleX(0.5)" },
+				},
+			},
+			animation: {
+				progress: "progress 1s infinite linear",
+			},
 		}
 	},
 	plugins: [TailwindAnimate],

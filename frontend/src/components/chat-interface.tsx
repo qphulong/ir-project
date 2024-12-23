@@ -1,13 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Sidebar } from './sidebar'
+import { RightSidebar } from './right-sidebar'
 import { ChatArea } from './chat-area'
 import { InputArea } from './input-area'
-import { PanelLeftOpen, PanelLeftClose } from 'lucide-react'
+import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 
 import { api } from '../api/index'
-
 
 export interface Message {
   id: number
@@ -21,11 +21,28 @@ export interface Conversation {
   messages: Message[]
 }
 
-export default function ChatGPTLikeInterface() {
+interface Document {
+  id: number
+  snippet: string
+  content: string
+}
+
+export default function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+  const [isInputAreaDisabled, setIsInputAreaDisabled] = useState(false)
+
+  // State to hold documents returned from the API
+  const [documents, setDocuments] = useState<Document[]>([])
+  // Control whether documents are shown in the right sidebar
+  const [showDocuments, setShowDocuments] = useState(true);
+  // State to hold the preprocessed query
+  const [preprocessedQuery, setPreprocessedQuery] = useState<string | null>(null);
+
+
 
   useEffect(() => {
     const savedConversations = localStorage.getItem('conversations')
@@ -49,11 +66,18 @@ export default function ChatGPTLikeInterface() {
   useEffect(() => {
     if (conversations.length > 0) {
       localStorage.setItem('conversations', JSON.stringify(conversations))
+      setIsInputAreaDisabled(false)
+    } else {
+      localStorage.removeItem('conversations')
+      setIsInputAreaDisabled(true)
     }
   }, [conversations])
 
   const addMessage = async (content: string) => {
     if (!currentConversation) return
+
+    setShowDocuments(true) // Show documents when a question is asked
+    setDocuments([]) // Clear previous documents before fetching new ones
 
     const newMessage: Message = {
       id: currentConversation.messages.length + 1,
@@ -67,24 +91,26 @@ export default function ChatGPTLikeInterface() {
     }
 
     setCurrentConversation(updatedConversation)
-    setConversations(conversations.map(conv => 
+    setConversations(conversations.map(conv =>
       conv.id === currentConversation.id ? updatedConversation : conv
     ))
 
     setIsTyping(true)
 
     try {
-      const response = await api.post('/api/chat-naiverag', { query: content })
+      // Call the updated API endpoint
+      const response = await api.post('/api/process-query', { query: content })
 
       if (!response.data) {
         throw new Error('Failed to fetch response from API')
       }
+
       const data = response.data
 
-
+      // The API now returns `final_response` instead of `response`
       const assistantMessage: Message = {
         id: updatedConversation.messages.length + 1,
-        content: data.response,
+        content: data.final_response,
         role: 'assistant'
       }
 
@@ -94,9 +120,19 @@ export default function ChatGPTLikeInterface() {
       }
 
       setCurrentConversation(finalConversation)
-      setConversations(conversations.map(conv => 
+      setConversations(conversations.map(conv =>
         conv.id === currentConversation.id ? finalConversation : conv
       ))
+
+      // Process documents returned by the API
+      if (data.texts && data.texts.documents) {
+        const newDocuments: Document[] = data.texts.documents.map((doc: string, index: number) => ({
+          id: data.texts.fragment_ids[index],
+          snippet: doc
+        }))
+        setDocuments(newDocuments)
+      }
+
     } catch (error) {
       console.error('Error fetching response:', error)
       const errorMessage: Message = {
@@ -109,7 +145,7 @@ export default function ChatGPTLikeInterface() {
         messages: [...updatedConversation.messages, errorMessage]
       }
       setCurrentConversation(finalConversation)
-      setConversations(conversations.map(conv => 
+      setConversations(conversations.map(conv =>
         conv.id === currentConversation.id ? finalConversation : conv
       ))
     } finally {
@@ -125,6 +161,8 @@ export default function ChatGPTLikeInterface() {
     }
     setConversations([...conversations, newConversation])
     setCurrentConversation(newConversation)
+    setShowDocuments(false)  // Reset showDocuments when starting a new conversation
+    setDocuments([]) // Clear documents
   }
 
   const renameConversation = (id: number, newTitle: string) => {
@@ -147,32 +185,56 @@ export default function ChatGPTLikeInterface() {
 
   return (
     <div className="flex h-screen bg-gray-100 relative">
-      <Sidebar 
+      <Sidebar
         conversations={conversations}
-        currentConversation={currentConversation || conversations[0]}
+        currentConversation={currentConversation}
         setCurrentConversation={setCurrentConversation}
         startNewConversation={startNewConversation}
         renameConversation={renameConversation}
         deleteConversation={deleteConversation}
-        isOpen={sidebarOpen}
+        isOpen={leftSidebarOpen}
+        setShowDocuments={setShowDocuments}
+        onPreprocessQuery={(query, action) => {
+          if (action === 'append') {
+            setPreprocessedQuery(preprocessedQuery ? `${preprocessedQuery} ${query}` : query)
+          } else {
+            setPreprocessedQuery(query)
+          }
+        }}
       />
       <Button
         variant="outline"
         size="icon"
         className={`fixed top-4 z-30 transition-all duration-300 ease-in-out ${
-          sidebarOpen ? 'left-[260px]' : 'left-4'
+          leftSidebarOpen ? 'left-[260px]' : 'left-4'
         }`}
-        onClick={() => setSidebarOpen(!sidebarOpen)}
+        onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
       >
-        {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-        <span className="sr-only">{sidebarOpen ? 'Close sidebar' : 'Open sidebar'}</span>
+        {leftSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+        <span className="sr-only">{leftSidebarOpen ? 'Close left sidebar' : 'Open left sidebar'}</span>
       </Button>
       <div className={`flex flex-col flex-grow transition-all duration-300 ease-in-out ${
-        sidebarOpen ? 'ml-64' : 'ml-0'
+        leftSidebarOpen ? 'ml-64' : 'ml-0'
+      } ${
+        rightSidebarOpen ? 'mr-64' : 'mr-0'
       }`}>
         <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />
-        <InputArea onSendMessage={addMessage} />
+        <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isInputAreaDisabled}/>
       </div>
+      <Button
+        variant="outline"
+        size="icon"
+        className={`fixed top-4 right-4 z-30 transition-all duration-300 ease-in-out ${
+          rightSidebarOpen ? 'right-[260px]' : 'right-4'
+        }`}
+        onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+      >
+        {rightSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+        <span className="sr-only">{rightSidebarOpen ? 'Close right sidebar' : 'Open right sidebar'}</span>
+      </Button>
+
+      {/* Pass the dynamically fetched documents to the RightSidebar */}
+      <RightSidebar documents={documents} isOpen={rightSidebarOpen} showDocuments={showDocuments}/>
     </div>
   )
 }

@@ -24,46 +24,22 @@ class Application():
         generator (Generator): Open AI LLM
         text_embed_model (NomicEmbed): generate embeddings for retrieval tasks
     """
+    _instance = None
+
+    # Make this class a singleton
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Application, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
     def __init__(self):
-        self.retriever = Retriever()
-        self.indexer = None #TODO implement class Indexer
-        self.generator = Generator()
-        self.text_embed_model = NomicEmbed()
-        self.query_preprocessor = QueryPreprocessor()
-        self.documents_loader = D2D()
-
-    def _load_doc(self, path: str) -> dict:
-        """Load document file (docx, pdf) to ram (dict)
-        Args:
-            path str: file path
-        Returns:
-            data dict: data in dict
-        """
-        data = self.documents_loader.convert_to_dict(path)
-        if data is None:
-            raise ValueError(f"Cannot load data from {path}")
-        return data
-    
-
-    def _load_data(self, path: str) -> dict:
-        """Load data from disk (json) to ram (dict)
-        Args:
-            path str: file path
-        Returns:
-            data dict: data in dict
-        """
-        data = self.documents_loader.load_from_disk(path)
-        if data is None:
-            raise ValueError(f"Cannot load data from {path}")
-        return data
-    
-    def _save_data(self, path: str, data: dict) -> None:
-        """Save data from ram (dict) to disk (json)
-        Args:
-            path str: file path
-            data dict: dict data
-        """
-        self.documents_loader.save_to_disk(path, data)
+        if not hasattr(self, 'initialized'):  # Ensure __init__ is only called once
+            self.retriever = Retriever()
+            self.indexer = None  # TODO implement class Indexer
+            self.generator = Generator()
+            self.text_embed_model = NomicEmbed()
+            self.query_preprocessor = QueryPreprocessor()
+            self.initialized = True
 
     def insert_doc(self,path:str)->None:
         """Save the document in the database path (./resources/quantized-db) 
@@ -96,6 +72,7 @@ class Application():
             vector = value['embedding']
             self.retriever.add_point_to_image_space(point_id=point_id,vector=vector)"""
 
+
     def begin(self):
         """
         Chat with retrieval system (stand-alone questions answering, 
@@ -119,6 +96,7 @@ class Application():
             pprint(img_urls)
             pprint("List of image id which you use to retrieve full document text")
             pprint(image_score_points)
+            
             query_embedding = binary_quantized(query_embedding)
             
             # search text space
@@ -177,6 +155,112 @@ class Application():
             pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
             pprint(metadatas_score_points)
             print(response)
+
+    def process_query(self, query:str):
+        """
+        Chat with retrieval system (stand-alone questions answering, 
+        conversation not supported)
+
+        Process a single query, interact with the retriever, generator, and 
+        possibly internet search, and return a JSON-friendly dictionary of results.
+
+        process_query function is the API endpoint version of the begin function
+        """
+        # get query_embedding and search images space
+        result = {
+            "texts": {
+                "documents": [],
+                "fragment_ids": []
+            },
+            # "metadatas": {
+            #     "documents": [],
+            #     "score_points": []
+            # },
+            "final_response": None,
+            "search_phase": ""
+        }
+        # # Get query_embedding and search image space
+        query_embedding = self.text_embed_model._get_embeddings_for_image_query(query)
+        # img_urls, image_score_points = self.retriever.search_image_space(query_embedding)
+
+        # result["images"]["urls"] = img_urls
+        # result["images"]["score_points"] = image_score_points
+
+        # Quantize query embedding
+        query_embedding = binary_quantized(query_embedding)
+
+        # Search text space
+        texts, text_score_points = self.retriever.search_text_space(query_embedding)
+        result["texts"]["documents"] = texts
+        result["texts"]["fragment_ids"] = [text_score_point.id for text_score_point in text_score_points]
+
+        # Attempt to generate an informative response from text results
+        document_str = ""
+        for i, text in enumerate(texts):
+            document_str += f"Document {i}:\n{text}\n\n"
+        response = self.generator.check_informative(user_query=query, documents_str=document_str)
+        if response != 'False':
+            result["final_response"] = response
+            result["search_phase"] = "text_space"
+            
+            return result
+
+        # # Search metadata space if text not informative enough
+        metadatas, metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
+        # result["metadatas"]["documents"] = metadatas
+        # result["metadatas"]["score_points_id"] = metadatas_score_points
+
+        document_str = ""
+        for i, metadata in enumerate(metadatas):
+            document_str += f"Document {i}:\n{metadata}\n\n"
+        response = self.generator.check_informative(user_query=query, documents_str=document_str)
+        if response != 'False':
+            result["final_response"] = response
+            result["search_phase"] = "metadata_space"
+            return result
+
+        # If both text and metadata search fail, try internet search
+        search_query = self.query_preprocessor.process_query_for_search(query)
+        self.search_internet(search_query=search_query)
+
+        # Re-search text space after internet search
+        texts, text_score_points = self.retriever.search_text_space(query_embedding)
+        result["texts"]["documents"] = texts
+        # Get ids from text_score_points
+        result["texts"]["fragment_ids"] = [text_score_point.id for text_score_point in text_score_points]
+
+        document_str = ""
+        for i, text in enumerate(texts):
+            document_str += f"Document {i}:\n{text}\n\n"
+        response = self.generator.check_informative(user_query=query, documents_str=document_str)
+        if response != 'False':
+            result["final_response"] = response
+            result["search_phase"] = "text_space_after_internet"
+            return result
+
+        # If still not informative, re-search metadata space after internet search
+        metadatas, metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
+        # result["metadatas"]["documents"] = metadatas
+        # result["metadatas"]["score_points"] = metadatas_score_points
+
+        document_str = ""
+        for i, metadata in enumerate(metadatas):
+            document_str += f"Document {i}:\n{metadata}\n\n"
+        response = self.generator.generate(query, document_str)
+        # result["final_response"] = response
+        # result["search_phase"] = "metadata_space_after_internet"
+        # metadatas,metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
+        # # pprint("RELOAD THE RIGHT SCROLL BOX, This is the list of text show up on the right scroll box")
+        # # pprint(metadatas)
+        # # pprint("This is the list of result (id,similarity score) which you will use id to get full document text")
+        # # pprint(metadatas_score_points)
+        # document_str = ""
+        # for i,metadata in enumerate(metadatas):
+        #     document_str += f"Document {i}:\n{metadata}\n\n"
+        # response = self.generator.generate(query,document_str)
+        result["final_response"] = response
+        return result
+
     
     def search_internet(self,search_query:str,n_cnn:int=6,n_medium:int=4):#@Hao
         """
@@ -248,7 +332,7 @@ class Application():
         )
         return search_results
     
-    def _get_all_text_from_fragment_id(self, point_id:str) -> str:
+    def get_all_text_from_fragment_id(self, point_id:str) -> str:
         """
         Get all document content base on the id of that document elements
         

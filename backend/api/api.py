@@ -2,19 +2,21 @@ import sys
 import os
 import json
 from flask import Flask, render_template, request, jsonify
+# from backend import NaiveRAG
+from llama_index.core.schema import Document as LLamaDocument
+from backend import Application
 
 SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
-from backend import NaiveRAG
-from llama_index.core.schema import Document as LLamaDocument
-
+application = Application()
 api = Flask(__name__)
 
-naive_rag = NaiveRAG(
-    resource_path='./resources/test-big-database',
-    embed_model_path='./resources/models/',
-)
+__all__ = ['api', 'ping', 'process_query']
+# naive_rag = NaiveRAG(
+#     resource_path='./resources/test-big-database',
+#     embed_model_path='./resources/models/',
+# )
 
 # Register the API routes here
 # Ping route (for testing)
@@ -22,8 +24,42 @@ naive_rag = NaiveRAG(
 def ping():
     return 'pong'
 
-@api.route('/api/chat-naiverag', methods=['POST'])
-def chat_naiverag():
+# @api.route('/api/chat-naiverag', methods=['POST'])
+# def chat_naiverag():
+#     """
+#     Flask API endpoint for the NaiveRAG system.
+#     Accepts a POST request with JSON payload containing the user query.
+#     """
+#     try:
+#         # Get JSON data from request
+#         data = request.get_json()
+#         user_query = data.get("query", "")
+        
+#         if not user_query:
+#             return jsonify({"error": "Query not provided"}), 400
+        
+#         # Process the user query through NaiveRAG
+#         answer = naive_rag.process_query(user_query)
+        
+#         return jsonify({"query": user_query, "response": answer}), 200
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
+@api.route('/api/texts/<fragment_id>', methods=['GET'])
+def get_text(fragment_id: str):
+    """
+    Flask API endpoint to retrieve a text document using fragement id.
+    """
+    try:
+        # Get the document using the fragment id
+        text = application.get_all_text_from_fragment_id(fragment_id)
+        return jsonify({"text": text}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api.route('/api/process-query', methods=['POST'])
+def process_query():
+
     """
     Flask API endpoint for the NaiveRAG system.
     Accepts a POST request with JSON payload containing the user query.
@@ -32,14 +68,35 @@ def chat_naiverag():
         # Get JSON data from request
         data = request.get_json()
         user_query = data.get("query", "")
-        
         if not user_query:
             return jsonify({"error": "Query not provided"}), 400
         
         # Process the user query through NaiveRAG
-        answer = naive_rag.process_query(user_query)
+        # answer = naive_rag.process_query(user_query)
+        answer = application.process_query(user_query)
+        # print(answer)
+        return answer, 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@api.route('/api/preprocess-query', methods=['POST'])
+def preprocess_query():
+    """
+    Flask API endpoint for the NaiveRAG system.
+    Accepts a POST request with JSON payload containing the user query.
+    """
+    try:
+        # Get JSON data from request
+        data = request.get_json()
+        user_query = data.get("query", "")
+        if not user_query:
+            return jsonify({"error": "Query not provided"}), 400
         
-        return jsonify({"query": user_query, "response": answer}), 200
+        # Process the user query through NaiveRAG
+        # answer = naive_rag.process_query(user_query)
+        answer = application.preprocess_query(user_query)
+        # return jsonify(answer), 200
+        return jsonify({"response": answer}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -62,3 +119,4 @@ def catch_all(path):
             return render_template('index.html', entry_stylesheet=entry_stylesheet, entry_script=entry_script)
     else:
         raise Exception('VITE_ENTRY_PATH environment variable not set')
+        
