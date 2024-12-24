@@ -32,7 +32,7 @@ export function RightSidebar({ documents, images, isOpen, showDocuments }: Right
 
   async function getText() {
     try {
-      const response = await api.get(`/api/texts/${selectedFragmentId}`);
+      const response = await api.get(`/api/texts/${encodeURIComponent(selectedFragmentId || '')}`);
       if (!response.data.text) {
         setText(NO_TEXT_AVAILABLE);
       } else {
