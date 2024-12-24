@@ -18,28 +18,6 @@ api.mount("/static", StaticFiles(directory="backend/api/static"), name="static")
 templates = Jinja2Templates(directory="backend/api/templates")
 query_sessions: dict[str, QuerySession] = {}
 
-# Index route, transfer control to the React frontend
-@api.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    entry_path = os.getenv('VITE_ENTRY_PATH')
-    if entry_path is not None:
-        # Development mode
-        if os.getenv('FLASK_ENV') == 'development':
-            return templates.TemplateResponse(
-                request=request, name='index-dev.html', context={'entry_path': entry_path}
-            )
-        else:
-        # Production mode
-            with open('backend/api/static/dist/.vite/manifest.json') as f:
-                manifest = json.load(f)
-                entry_stylesheet = 'dist/' + manifest[entry_path]['css'][0]
-                entry_script = 'dist/' + manifest[entry_path]['file']
-                return templates.TemplateResponse(
-                    request=request, name='index.html', context={'entry_path': entry_path, 'entry_stylesheet': entry_stylesheet, 'entry_script': entry_script}
-                )
-    else:
-        raise Exception('VITE_ENTRY_PATH environment variable not set')
-
 # Register the API routes here
 # Ping route (for testing)
 @api.get('/api/ping')
@@ -60,19 +38,17 @@ async def get_text(fragment_id: str):
 
 async def process_query_receiver(websocket: WebSocket, client_id: str):
     while client_id in query_sessions:
-        try:
-            data = await websocket.receive_text()
-            if query_sessions[client_id].state == QueryState.NONE:
-                try:
-                    query = json.loads(data, object_hook=lambda d: Query(**d))
-                except json.JSONDecodeError as e:
-                    print(f"Error decoding JSON: {e}")
-                    continue
-                query_sessions[client_id] = QuerySession(QueryState.SEARCHING_LOCAL)
-                await asyncio.sleep(0) # Allow the consumer to process the query
-                query_sessions[client_id] = await application.process_query(query.query)
-        except WebSocketDisconnect:
-            break
+        data = await websocket.receive_text()
+        if query_sessions[client_id].state == QueryState.NONE:
+            try:
+                query = json.loads(data, object_hook=lambda d: Query(**d))
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON: {e}")
+                continue
+            query_sessions[client_id] = QuerySession(QueryState.SEARCHING_LOCAL)
+            await asyncio.sleep(0) # Allow the consumer to process the query
+            query_sessions[client_id] = await application.process_query(query.query)
+
 
 async def process_query_sender(websocket: WebSocket, client_id: str):
     while client_id in query_sessions:
@@ -94,6 +70,8 @@ async def process_query(websocket: WebSocket):
     consumer = asyncio.create_task(process_query_receiver(websocket, client_id))
     try:
         await asyncio.gather(producer, consumer)
+    except WebSocketDisconnect:
+        pass
     finally:
         query_sessions.pop(client_id, None)
             
@@ -118,3 +96,22 @@ async def preprocess_query(request: Request):
         return {"response": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+# Index route, transfer control to the React frontend
+# full_path is needed, DO NOT REMOVE
+@api.get("/{full_path:path}", response_class=HTMLResponse)
+async def index(request: Request, full_path: str):
+    entry_path = os.getenv('VITE_ENTRY_PATH', 'src/main.tsx')
+    if os.getenv('FLASK_ENV') == 'development':
+        return templates.TemplateResponse(
+            request=request, name='index-dev.html', context={'entry_path': entry_path}
+        )
+    else:
+    # Production mode
+        with open('backend/api/static/dist/.vite/manifest.json') as f:
+            manifest = json.load(f)
+            entry_stylesheet = 'dist/' + manifest[entry_path]['css'][0]
+            entry_script = 'dist/' + manifest[entry_path]['file']
+            return templates.TemplateResponse(
+                request=request, name='index.html', context={'entry_path': entry_path, 'entry_stylesheet': entry_stylesheet, 'entry_script': entry_script}
+            )

@@ -1,8 +1,6 @@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Message } from './chat-interface'
 import { useEffect, useRef } from "react"
-import { Info } from "lucide-react"
-
 
 interface ChatAreaProps {
   messages: Message[]
@@ -19,7 +17,6 @@ export function ChatArea({ messages, isTyping }: ChatAreaProps) {
   }, [messages.length]);
 
   return (
-    messages.length > 0 ? 
     <ScrollArea className="flex-grow p-4 space-y-4">
       {messages.map((message, index) => (
         <div
@@ -49,10 +46,6 @@ export function ChatArea({ messages, isTyping }: ChatAreaProps) {
           </div>
         </div>
       )}
-    </ScrollArea> :
-    <div className="h-full flex flex-col gap-2 items-center justify-center text-center p-4 text-gray-500">
-      <Info size={48}/>
-      <p className="text-xl">No messages yet.</p>
-  </div>
+    </ScrollArea>
   )
 }
