@@ -173,6 +173,10 @@ class Application():
                 "documents": [],
                 "fragment_ids": []
             },
+            "images": {
+                "urls": [],
+                "fragment_ids": []
+            },
             # "metadatas": {
             #     "documents": [],
             #     "score_points": []
@@ -182,10 +186,10 @@ class Application():
         }
         # # Get query_embedding and search image space
         query_embedding = self.text_embed_model._get_embeddings_for_image_query(query)
-        # img_urls, image_score_points = self.retriever.search_image_space(query_embedding)
+        img_urls, image_score_points = self.retriever.search_image_space(query_embedding)
 
-        # result["images"]["urls"] = img_urls
-        # result["images"]["score_points"] = image_score_points
+        result["images"]["urls"] = img_urls
+        result["images"]["fragment_ids"] = [image_score_point.id for image_score_point in image_score_points]
 
         # Quantize query embedding
         query_embedding = binary_quantized(query_embedding)

@@ -4,7 +4,7 @@ import { Sidebar } from './sidebar'
 import { RightSidebar } from './right-sidebar'
 import { ChatArea } from './chat-area'
 import { InputArea } from './input-area'
-import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose, CircleAlert } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import useWebSocket, { ReadyState } from "react-use-websocket"
 
@@ -21,9 +21,14 @@ export interface Conversation {
 }
 
 interface Document {
-  id: number
+  id: string
   snippet: string
   content: string
+}
+
+interface Image {
+  id: string
+  url: string
 }
 
 enum QueryState {
@@ -42,20 +47,41 @@ export default function ChatInterface() {
   const [isTyping, setIsTyping] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
   const [isInputAreaDisabled, setIsInputAreaDisabled] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket("ws://localhost:4000/api/process-query", {
     share: true
   });
 
   // State to hold documents returned from the API
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<Document[] | null>(null)
+  const [images, setImages] = useState<Image[] | null>(null)
   // Control whether documents are shown in the right sidebar
-  const [showDocuments, setShowDocuments] = useState(true);
+  const [showDocuments, setShowDocuments] = useState(false);
   // State to hold the preprocessed query
   const [preprocessedQuery, setPreprocessedQuery] = useState<string | null>(null);
+
+  function handleResize() {
+    if (window.innerWidth < 768) {
+      setIsMobile(true)
+      setLeftSidebarOpen(false)
+      setRightSidebarOpen(false)
+    } else {
+      setIsMobile(false)
+    }
+  }
+
+  useEffect(() => {
+    // Add event listener to handle window resize
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     if (readyState === ReadyState.OPEN) {
       console.log("WebSocket connection established");
+    } else if (readyState === ReadyState.CLOSED) {
+      console.log("WebSocket connection closed");
+      setIsInputAreaDisabled(true)
     }
   }, [readyState]);
   
@@ -89,7 +115,12 @@ export default function ChatInterface() {
               id: message.result.texts.fragment_ids[index],
               snippet: doc
             }))
+            const newImages: Image[] = message.result.images.urls.map((url: string, index: number) => ({
+              id: message.result.images.fragment_ids[index],
+              url: url
+            }))
             setDocuments(newDocuments)
+            setImages(newImages)
           }
           setIsTyping(false)
           break;
@@ -125,7 +156,7 @@ export default function ChatInterface() {
       const initialConversation: Conversation = {
         id: 1,
         title: 'Welcome Chat',
-        messages: [{ id: 1, content: "Hello! How can I assist you today?", role: 'assistant' }]
+        messages: [{ id: 1, content: "Hello! Please start by asking a question.", role: 'assistant' }]
       }
       setConversations([initialConversation])
       setCurrentConversation(initialConversation)
@@ -146,7 +177,8 @@ export default function ChatInterface() {
     if (!currentConversation) return
 
     setShowDocuments(true) // Show documents when a question is asked
-    setDocuments([]) // Clear previous documents before fetching new ones
+    setDocuments(null) // Clear previous documents before fetching new ones
+    setImages(null)
 
     const newMessage: Message = {
       id: currentConversation.messages.length + 1,
@@ -171,12 +203,13 @@ export default function ChatInterface() {
     const newConversation: Conversation = {
       id: conversations.length + 1,
       title: `New Chat ${conversations.length + 1}`,
-      messages: []
+      messages: [{ id: 1, content: "Hello! Please start by asking a question.", role: 'assistant' }]
     }
     setConversations([...conversations, newConversation])
     setCurrentConversation(newConversation)
     setShowDocuments(false)  // Reset showDocuments when starting a new conversation
-    setDocuments([]) // Clear documents
+    setDocuments(null) // Clear documents when starting a new conversation
+    setImages(null) // Clear images when starting a new conversation
   }
 
   const renameConversation = (id: number, newTitle: string) => {
@@ -220,35 +253,48 @@ export default function ChatInterface() {
         variant="outline"
         size="icon"
         className={`fixed top-4 z-30 transition-all duration-300 ease-in-out ${
-          leftSidebarOpen ? 'left-[260px]' : 'left-4'
+          leftSidebarOpen ? 'left-4 md:left-[260px]' : 'left-4'
         }`}
-        onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-      >
+        onClick={() => {
+          if (!(isMobile && rightSidebarOpen)) {
+            setLeftSidebarOpen(!leftSidebarOpen)
+          }
+        }}
+        >
         {leftSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         <span className="sr-only">{leftSidebarOpen ? 'Close left sidebar' : 'Open left sidebar'}</span>
       </Button>
       <div className={`flex flex-col flex-grow transition-all duration-300 ease-in-out ${
-        leftSidebarOpen ? 'ml-64' : 'ml-0'
+        leftSidebarOpen ? 'md:ml-64' : 'ml-0'
       } ${
-        rightSidebarOpen ? 'mr-64' : 'mr-0'
+        rightSidebarOpen ? 'md:mr-64' : 'mr-0'
       }`}>
-        <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />
+        {readyState === ReadyState.CLOSED ?
+        <div className="h-full flex flex-col gap-2 items-center justify-center text-center p-4 text-gray-500">
+          <CircleAlert size={48}/>
+          <p className="text-xl ">Unable to establish connection with the chat API. Try to refresh this page.</p>
+        </div> :
+        <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />}
         <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isInputAreaDisabled}/>
       </div>
       <Button
         variant="outline"
         size="icon"
         className={`fixed top-4 right-4 z-30 transition-all duration-300 ease-in-out ${
-          rightSidebarOpen ? 'right-[260px]' : 'right-4'
+          rightSidebarOpen ? 'right-4 md:right-[260px]' : 'right-4'
         }`}
-        onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+        onClick={() => {
+          if (!(isMobile && leftSidebarOpen)) {
+            setRightSidebarOpen(!rightSidebarOpen)
+          }
+        }}
       >
         {rightSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
         <span className="sr-only">{rightSidebarOpen ? 'Close right sidebar' : 'Open right sidebar'}</span>
       </Button>
 
       {/* Pass the dynamically fetched documents to the RightSidebar */}
-      <RightSidebar documents={documents} isOpen={rightSidebarOpen} showDocuments={showDocuments}/>
+      <RightSidebar images={images} documents={documents} isOpen={rightSidebarOpen} showDocuments={showDocuments}/>
     </div>
   )
 }

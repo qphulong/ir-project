@@ -103,7 +103,7 @@ export function Sidebar({
   }
 
   return (
-    <div className="w-64 bg-gray-900 text-white flex flex-col h-full transition-all duration-300 ease-in-out fixed left-0 top-0 bottom-0 z-20">
+    <div className="w-full md:w-64 bg-gray-900 text-white flex flex-col h-full transition-all duration-300 ease-in-out fixed left-0 top-0 bottom-0 z-20">
       <div className="p-4 flex-grow overflow-hidden flex flex-col">
         <Button onClick={startNewConversation} className="mb-4">
           <PlusCircle className="mr-2 h-4 w-4" /> New Chat
