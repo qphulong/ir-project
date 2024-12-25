@@ -1,0 +1,20 @@
+import sys
+import os
+import time
+
+SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(SYSTEM_PATH)
+
+from database import CNNSearcher
+
+keywords = [
+    "stock"
+]
+
+searcher = CNNSearcher()
+
+start_time = time.time()
+for keyword in keywords:
+    searcher.search_posts(keyword, 10)
+concurrent_duration = time.time() - start_time
+print(f"Concurrent execution time: {concurrent_duration:.2f} seconds")

@@ -18,8 +18,33 @@ sys.path.append(SYSTEM_PATH)
 from backend.utils import *
 from backend import NomicEmbedVision, NomicEmbed, SemanticChunker
 from llama_index.core.schema import Document as LlamaIndexDocument
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 num_of_no_id_post = 1
+
+class Driver:
+    def __init__(self):
+        self.driver_pool = []
+
+    def create_driver(self):
+        ua = UserAgent()
+        user_agent = ua.random
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument(f"user-agent={user_agent}")
+        driver = webdriver.Chrome(options=options)
+
+        return driver
+    
+    def get_driver(self):
+        if len(self.driver_pool) > 0:
+            return self.driver_pool.pop()
+        else:
+            return self.create_driver()
+        
+    def release_driver(self, driver):
+        self.driver_pool.append(driver)
 
 
 class CNNCrawler:
@@ -94,6 +119,7 @@ class CNNCrawler:
         self.vision_embed_model = NomicEmbedVision()
         self.semantic_chunker = SemanticChunker(breakpoint_percentile_threshold=60)
         self.max_depth = max_depth
+        self.driver = Driver()
 
     def load_visited_links(self) -> set:
         if os.path.exists(self.visited_links_file):
@@ -130,20 +156,12 @@ class CNNCrawler:
 
     def scrape_post(self, url: str) -> None:
         if url in self.visited_links:
-           print(f"visited{url}")
            return
         
         global num_of_no_id_post
         try:
+            driver = self.driver.get_driver()
 
-            ua = UserAgent()
-            user_agent = ua.random
-
-            options = webdriver.ChromeOptions()
-            options.add_argument("--headless")
-            options.add_argument("--no-sandbox")
-            options.add_argument(f"user-agent={user_agent}")
-            driver = webdriver.Chrome(options=options)
             driver.get(url)
         
             WebDriverWait(driver, 3).until(
@@ -157,7 +175,7 @@ class CNNCrawler:
             self.save_visited_links()
             return
         finally:
-            driver.quit()
+            self.driver.release_driver(driver)
 
         soup = BeautifulSoup(page_source, 'html.parser')
 
@@ -210,21 +228,21 @@ class CNNCrawler:
 
         #self.scrape_related_links(soup, current_depth + 1)
 
-    def scrape_related_links(self, soup: BeautifulSoup, current_depth: int) -> None:
-        links = soup.find_all("a", href=True, class_="container__link")
-        for link in links:
-            href = link["href"]
-            if href.startswith("http"):
-                full_url = href
-            elif href.startswith("/"):
-                full_url = f"https://edition.cnn.com{href}"
-            else:
-                continue
-            if full_url in self.visited_links:
-                continue
-            if not "/videos/" in href and not "/video/" in href:
-                continue
-            self.scrape_post(full_url, current_depth)
+    # def scrape_related_links(self, soup: BeautifulSoup, current_depth: int) -> None:
+    #     links = soup.find_all("a", href=True, class_="container__link")
+    #     for link in links:
+    #         href = link["href"]
+    #         if href.startswith("http"):
+    #             full_url = href
+    #         elif href.startswith("/"):
+    #             full_url = f"https://edition.cnn.com{href}"
+    #         else:
+    #             continue
+    #         if full_url in self.visited_links:
+    #             continue
+    #         if not "/videos/" in href and not "/video/" in href:
+    #             continue
+    #         self.scrape_post(full_url, current_depth)
         
 
     def extract_page_stellar_id(self, soup: BeautifulSoup) -> Optional[str]:
@@ -491,7 +509,7 @@ class CNNSearcher:
         finally:
             driver.quit()
 
-    def search_posts(self, keyword: str, size: int = 10):
+    def search_posts(self, keyword: str, size: int = 10, max_workers: int = os.cpu_count() * 2):
         links = []
         page_count = math.ceil(size / 10)
 
@@ -506,7 +524,17 @@ class CNNSearcher:
 
         contents = [self.scrawler.scrape_post(link) for link in links]
 
-        return contents
+        contents = []
 
-    
-    
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_link = {executor.submit(self.scrawler.scrape_post, link): link for link in links}
+            for future in as_completed(future_to_link):
+                link = future_to_link[future]
+                try:
+                    content = future.result()
+                    if content:
+                        contents.append(content)
+                except Exception as e:
+                    print(f"Error processing {link}: {e}")
+
+        return contents
