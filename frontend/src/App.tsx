@@ -1,16 +1,15 @@
-import { Routes, Route } from 'react-router-dom';
-import  ChatPage from './pages/ChatPage/page';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ChatPage from './pages/ChatPage/page';
+import NotFound from './pages/404';
+
 function App() {
     return (
-        <Routes>
-            <Route path="/" element={
-              <div className="text-4xl font-bold">Hello there!</div>
-            }/>
-            <Route path="/chat" element={
-                <ChatPage/>
-                }/>
-
-        </Routes>
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<ChatPage/>}/>
+                <Route path="*" element={<NotFound/>}/>
+            </Routes>
+        </BrowserRouter>
     );
 }
 

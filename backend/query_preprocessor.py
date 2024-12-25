@@ -49,6 +49,7 @@ class QueryPreprocessor:
             res = completion.choices[0].message.content.split("\n")
         except Exception as e:
             return None
+        # Make it as a list of queries
         return [r.strip() for r in res if r.strip() != ""]
     
     def process_query_for_search(self, query: str) -> str:

@@ -63,7 +63,7 @@ class Retriever():
                     data = json.load(f)
                     
                     # Check if 'content' key exists in the file
-                    if 'content' in data:
+                    if 'content' in data and data['content']:
                         # For each entry in the 'content', extract the embedding
                         for key, value in data['content'].items():
                             embedding = base64_to_binary_array(value.get('embedding'))
@@ -134,7 +134,7 @@ class Retriever():
                     data = json.load(f)
                     
                     # Check if 'content' key exists in the file
-                    if 'images' in data:
+                    if 'images' in data and data['images']:
                         # For each entry in the 'content', extract the embedding
                         for key, value in data['images'].items():
                             embedding = base64_to_float32_vector(value.get('embedding'))
@@ -193,6 +193,8 @@ class Retriever():
                     if 'id' in data:
                         # For each entry in the 'content', extract the embedding
                         dynamic_id = data['id']
+                        if dynamic_id not in data['metadata']:
+                            continue
                         embedding = base64_to_binary_array(data['metadata'][dynamic_id]['embedding'])
                         self.metadata_space._add_point(
                             point=PointStruct(
