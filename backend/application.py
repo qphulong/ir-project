@@ -14,6 +14,7 @@ from PIL.ImageFile import ImageFile
 from .D2D import D2D
 from .nomic_embed_vision import NomicEmbedVision
 from .query_session import QuerySession, QueryState
+from database import Indexer
 
 class Application():
     """
@@ -36,7 +37,7 @@ class Application():
     def __init__(self):
         if not hasattr(self, 'initialized'):  # Ensure __init__ is only called once
             self.retriever = Retriever()
-            self.indexer = None  # TODO implement class Indexer
+            self.indexer = Indexer()
             self.generator = Generator()
             self.text_embed_model = NomicEmbed()
             self.query_preprocessor = QueryPreprocessor()
@@ -130,7 +131,7 @@ class Application():
             
             # if both search fail, search internet and try again
             search_query = self.query_preprocessor.process_query_for_search(query)
-            self.search_internet(search_query=search_query) # @Hao
+            self.search_internet(search_query=search_query)
 
             # Re-search vector store
             texts, text_score_points  = self.retriever.search_text_space(query_embedding)
@@ -138,6 +139,8 @@ class Application():
             for i,text in enumerate(texts):
                 document_str += f"Document {i}:\n{text}\n\n"
             response = self.generator.check_informative(user_query=query,documents_str=document_str)
+            pprint("This is the list of text show up on the right scroll box")
+            pprint(texts)
             if response != 'False': # If response if informative, continue to next loop/question
                 pprint("This is the list of text show up on the right scroll box")
                 pprint(texts)
@@ -266,7 +269,7 @@ class Application():
         return QuerySession(QueryState.SUCCESS, result)
 
     
-    def search_internet(self,search_query:str,n_cnn:int=6,n_medium:int=4):#@Hao
+    def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4):
         """
         Function to crawl realtime posts on CNN and medium
 
@@ -274,8 +277,30 @@ class Application():
             - n posts on medium and cnn save to local json database
             - new vectors added to RAM in the current session
         """
-        # TODO: phan cua a Hao, see class Retriever to use function to add vectors to ram
-        pass
+        self.indexer.crawl_both(search_query, n_cnn, n_medium)
+
+        contents = self.indexer.get_content_embeddings()
+
+        metadatas = self.indexer.get_metadata_items_embeddings()
+
+        images = self.indexer.get_images_items_embeddings()
+
+        for item in contents:
+            for id, value in item.items():
+                self.retriever.add_point_to_text_space(id, base64_to_binary_array(value["embedding"]))
+                print(f'contents: {value["embedding"]}')
+
+        for item in metadatas:
+            for id, value in item.items():
+                self.retriever.add_point_to_metadata_space(id, base64_to_binary_array(value))
+                print(f'metadata:{value}')
+
+        for item in images:
+            for id, value in item.items():
+                self.retriever.add_point_to_image_space(id, base64_to_float32_vector(value["embedding"]))
+                print(f'image:{value["embedding"]}')
+
+        self.indexer.clear_data()
 
     def preprocess_query(self, user_query:str, k:int =3):
         """

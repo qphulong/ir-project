@@ -78,7 +78,7 @@ class Retriever():
         # shorten and change dtype of vectors
         self.text_space.vectors[''] = self.text_space.vectors[''].astype(np.uint8)[:n_embeddings]
                         
-    def search_text_space(self, query_vector:np.ndarray,top_k:int = 8) -> Tuple[List[str],List[ScoredPoint]]:
+    def search_text_space(self, query_vector:np.ndarray,top_k:int = 16) -> Tuple[List[str],List[ScoredPoint]]:
         """
         Example usage:
         query = input('User: ')

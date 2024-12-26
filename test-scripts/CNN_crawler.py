@@ -4,23 +4,16 @@ import os
 SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(SYSTEM_PATH)
 
-from database import CNNCrawler, CNNSearcher
+from database import CNNSearcher
 
-keyword = input("Enter the search keyword: ")
-size = int(input("Enter the number of results: "))
-page_count = size // 10
+keywords = [
+    "stock"
+]
+
 searcher = CNNSearcher()
-links = []
-for page in range(1, page_count + 1):
-    page_links = searcher.search(keyword=keyword, size=10, page=page, sort="newest")
-    links.extend(page_links)
-    if len(links) >= size:
-        break
 
-links = links[:size]
-crawler = CNNCrawler()
-for link in links:
-    crawler.scrape_post(link)
+for keyword in keywords:
+    searcher.search_posts(keyword, 20)
 
 '''
 base_url = "https://edition.cnn.com/"
