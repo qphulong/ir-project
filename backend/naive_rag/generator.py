@@ -13,7 +13,7 @@ class Generator():
             messages=[
                 {"role": "system", 
                  "content": """You are an assistant for question-answering tasks.
-                    The user will provide their query and documents.
+                    The user will provide their query and documents which is crawled from newspaper.
                     Use the provided documents to answer the question.
                     If the document does not provide enough information, please say the document does not provide enough information.
                 """
@@ -43,7 +43,7 @@ class Generator():
             messages=[
                 {"role": "system", 
                  "content": """You are an assistant for question-answering tasks.
-                    The user will provide their query and documents.
+                    The user will provide their query and documents which is crawled from newspaper.
                     Use the provided documents to answer user question.
                     If the document does not provide enough information, please response with a single word 'False'.
                 """

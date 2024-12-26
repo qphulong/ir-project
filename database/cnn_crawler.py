@@ -15,8 +15,10 @@ from dotenv import load_dotenv
 SYSTEM_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(dotenv_path=f"{SYSTEM_PATH}/backend/.env")
 sys.path.append(SYSTEM_PATH)
-from backend.utils import *
-from backend import NomicEmbedVision, NomicEmbed, SemanticChunker
+from backend.utils import binary_quantized, binary_array_to_base64, float32_vector_to_base64
+from backend.semantice_chunker import SemanticChunker
+from backend.nomic_embed import NomicEmbed
+from backend.nomic_embed_vision import NomicEmbedVision
 from llama_index.core.schema import Document as LlamaIndexDocument
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -110,7 +112,7 @@ class CNNCrawler:
         save_post_data_to_json(post_data: Dict[str, Any], filename: str) -> None:
             Saves the scraped article data to a JSON file in the output directory.
     """
-    def __init__(self, output_dir: str = "resources/test-big-database/database/CNN", visited_links_file="visited_links.json", max_depth=10):
+    def __init__(self, output_dir: str = "resources/quantized-db", visited_links_file="visited_links.json", max_depth=10):
         self.output_dir = output_dir
         self.user_agent = UserAgent()
         self.visited_links_file = visited_links_file
@@ -521,8 +523,6 @@ class CNNSearcher:
                 break
 
         links = links[:size]
-
-        contents = [self.scrawler.scrape_post(link) for link in links]
 
         contents = []
 
