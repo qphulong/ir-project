@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from .binary_quantized_rag.retriever import Retriever
 from .naive_rag import Generator
 from .nomic_embed import NomicEmbed
@@ -234,10 +235,12 @@ class Application():
         await asyncio.sleep(0)  # Allow the consumer to process the query
         search_query = self.query_preprocessor.process_query_for_search(query)
         # Modify for async
-        res = await self.search_internet(search_query=search_query)
-        if res == False:
-            query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
-            return
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            res = await loop.run_in_executor(executor, self.search_internet, search_query)
+            if res == False:
+                query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
+                return
 
         # Re-search text space after internet search
         texts, text_score_points = self.retriever.search_text_space(query_embedding)
@@ -279,7 +282,7 @@ class Application():
         query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
 
     
-    async def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4) -> bool:
+    def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4) -> bool:
         """
         Function to crawl realtime posts on CNN and medium
 
