@@ -132,8 +132,8 @@ class Application():
             
             # if both search fail, search internet and try again
             search_query = self.query_preprocessor.process_query_for_search(query)
-            self.search_internet(search_query=search_query)
-
+            # Modify for async
+            asyncio.run(self.search_internet(search_query=search_query))
             # Re-search vector store
             texts, text_score_points  = self.retriever.search_text_space(query_embedding)
             document_str = ""
@@ -233,9 +233,9 @@ class Application():
         query_sessions[client_id] = QuerySession(QueryState.SEARCHING_INTERNET, result)
         await asyncio.sleep(0)  # Allow the consumer to process the query
         search_query = self.query_preprocessor.process_query_for_search(query)
-        try:
-            self.search_internet(search_query=search_query)
-        except Exception:
+        # Modify for async
+        res = await self.search_internet(search_query=search_query)
+        if res == False:
             query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
             return
 
@@ -279,7 +279,7 @@ class Application():
         query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
 
     
-    def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4):
+    async def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4) -> bool:
         """
         Function to crawl realtime posts on CNN and medium
 
@@ -287,30 +287,34 @@ class Application():
             - n posts on medium and cnn save to local json database
             - new vectors added to RAM in the current session
         """
-        self.indexer.crawl_both(search_query, n_cnn, n_medium)
+        try: 
+            self.indexer.crawl_both(search_query, n_cnn, n_medium)
 
-        contents = self.indexer.get_content_embeddings()
+            contents = self.indexer.get_content_embeddings()
 
-        metadatas = self.indexer.get_metadata_items_embeddings()
+            metadatas = self.indexer.get_metadata_items_embeddings()
 
-        images = self.indexer.get_images_items_embeddings()
+            images = self.indexer.get_images_items_embeddings()
 
-        for item in contents:
-            for id, value in item.items():
-                self.retriever.add_point_to_text_space(id, base64_to_binary_array(value["embedding"]))
-                print(f'contents: {value["embedding"]}')
+            for item in contents:
+                for id, value in item.items():
+                    self.retriever.add_point_to_text_space(id, base64_to_binary_array(value["embedding"]))
+                    print(f'contents: {value["embedding"]}')
 
-        for item in metadatas:
-            for id, value in item.items():
-                self.retriever.add_point_to_metadata_space(id, base64_to_binary_array(value))
-                print(f'metadata:{value}')
+            for item in metadatas:
+                for id, value in item.items():
+                    self.retriever.add_point_to_metadata_space(id, base64_to_binary_array(value))
+                    print(f'metadata:{value}')
 
-        for item in images:
-            for id, value in item.items():
-                self.retriever.add_point_to_image_space(id, base64_to_float32_vector(value["embedding"]))
-                print(f'image:{value["embedding"]}')
+            for item in images:
+                for id, value in item.items():
+                    self.retriever.add_point_to_image_space(id, base64_to_float32_vector(value["embedding"]))
+                    print(f'image:{value["embedding"]}')
 
-        self.indexer.clear_data()
+            self.indexer.clear_data()
+            return True
+        except Exception:
+            return False
 
     def preprocess_query(self, user_query:str, k:int =3):
         """
