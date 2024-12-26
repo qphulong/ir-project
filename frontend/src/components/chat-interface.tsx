@@ -214,6 +214,7 @@ export default function ChatInterface() {
     ))
 
     sendJsonMessage({ query: content })
+    setIsInputAreaDisabled(true)
   }
 
   const startNewConversation = () => {
@@ -292,7 +293,7 @@ export default function ChatInterface() {
           <p className="text-xl ">Unable to establish connection with the chat API. Try to refresh this page.</p>
         </div> :
         <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />}
-        <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isInputAreaDisabled}/>
+        <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isTyping || isInputAreaDisabled}/>
       </div>
       <Button
         variant="outline"
