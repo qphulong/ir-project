@@ -1,3 +1,4 @@
+import asyncio
 from .binary_quantized_rag.retriever import Retriever
 from .naive_rag import Generator
 from .nomic_embed import NomicEmbed
@@ -160,7 +161,7 @@ class Application():
             pprint(metadatas_score_points)
             print(response)
 
-    async def process_query(self, query: str):
+    async def process_query(self, query: str, query_sessions: dict, client_id: str):
         """
         Chat with retrieval system (stand-alone questions answering, 
         conversation not supported)
@@ -210,7 +211,8 @@ class Application():
         if response != 'False':
             result["final_response"] = response
             result["search_phase"] = "text_space"
-            return QuerySession(QueryState.SUCCESS, result)
+            query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
+            return
 
         # # Search metadata space if text not informative enough
         metadatas, metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
@@ -224,11 +226,18 @@ class Application():
         if response != 'False':
             result["final_response"] = response
             result["search_phase"] = "metadata_space"
-            return QuerySession(QueryState.SUCCESS, result)
+            query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
+            return
 
         # If both text and metadata search fail, try internet search
+        query_sessions[client_id] = QuerySession(QueryState.SEARCHING_INTERNET, result)
+        await asyncio.sleep(0)  # Allow the consumer to process the query
         search_query = self.query_preprocessor.process_query_for_search(query)
-        self.search_internet(search_query=search_query)
+        try:
+            self.search_internet(search_query=search_query)
+        except Exception:
+            query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
+            return
 
         # Re-search text space after internet search
         texts, text_score_points = self.retriever.search_text_space(query_embedding)
@@ -243,7 +252,8 @@ class Application():
         if response != 'False':
             result["final_response"] = response
             result["search_phase"] = "text_space_after_internet"
-            return QuerySession(QueryState.SUCCESS, result)
+            query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
+            return
 
         # If still not informative, re-search metadata space after internet search
         metadatas, metadatas_score_points = self.retriever.search_metadata_space(query_embedding)
@@ -266,7 +276,7 @@ class Application():
         #     document_str += f"Document {i}:\n{metadata}\n\n"
         # response = self.generator.generate(query,document_str)
         result["final_response"] = response
-        return QuerySession(QueryState.SUCCESS, result)
+        query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
 
     
     def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4):

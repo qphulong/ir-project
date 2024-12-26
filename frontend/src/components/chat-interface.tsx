@@ -92,6 +92,23 @@ export default function ChatInterface() {
         case QueryState.SEARCHING_LOCAL:
           setIsTyping(true);
           break;
+        case QueryState.SEARCHING_INTERNET:
+          setIsTyping(false);
+          const assistantInternetRequiredMessage: Message = {
+            id: currentConversation.messages.length + 1,
+            content: "Searching the internet for relevant information... This may take a while.",
+            role: 'assistant'
+          }
+          const updatedConversationInternetRequired = {
+            ...currentConversation,
+            messages: [...currentConversation.messages, assistantInternetRequiredMessage]
+          }
+          setCurrentConversation(updatedConversationInternetRequired)
+          setConversations(conversations.map(conv =>
+            conv.id === currentConversation.id ? updatedConversationInternetRequired : conv
+          ))
+          setIsTyping(true);
+          break;
         case QueryState.SUCCESS:
           const assistantMessage: Message = {
             id: currentConversation.messages.length + 1,

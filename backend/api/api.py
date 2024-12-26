@@ -47,8 +47,7 @@ async def process_query_receiver(websocket: WebSocket, client_id: str):
                 continue
             query_sessions[client_id] = QuerySession(QueryState.SEARCHING_LOCAL)
             await asyncio.sleep(0) # Allow the consumer to process the query
-            query_sessions[client_id] = await application.process_query(query.query)
-
+            await application.process_query(query.query, query_sessions, client_id)
 
 async def process_query_sender(websocket: WebSocket, client_id: str):
     while client_id in query_sessions:
