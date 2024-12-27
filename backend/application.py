@@ -279,7 +279,7 @@ class Application():
         query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
 
     
-    def search_internet(self,search_query:str,n_cnn:int=0,n_medium:int=2):
+    def search_internet(self,search_query:str,n_cnn:int=5,n_medium:int=5):
         """
         Function to crawl realtime posts on CNN and medium
 
@@ -298,17 +298,14 @@ class Application():
         for item in contents:
             for id, value in item.items():
                 self.retriever.add_point_to_text_space(id, base64_to_binary_array(value["embedding"]))
-                print(f'contents: {value["embedding"]}')
 
         for item in metadatas:
             for id, value in item.items():
                 self.retriever.add_point_to_metadata_space(id, base64_to_binary_array(value))
-                print(f'metadata:{value}')
 
         for item in images:
             for id, value in item.items():
                 self.retriever.add_point_to_image_space(id, base64_to_float32_vector(value["embedding"]))
-                print(f'image:{value["embedding"]}')
 
         self.indexer.clear_data()
 

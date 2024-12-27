@@ -51,68 +51,68 @@ class Driver:
 
 class CNNCrawler:
     """
-    A class to scrape and save detailed post data from CNN articles.
+    A class for scraping and saving detailed post data from CNN articles, including metadata, content, images, and embeddings.
 
     Attributes:
-        output_dir (str): The directory where scraped data will be saved.
-        visited_links_file (str): The filename to store visited URLs.
-        visited_links (set): A set to keep track of visited links to avoid re-scraping.
-        max_depth (int): The maximum depth to crawl for related articles.
+        output_dir (str): Directory where scraped data will be saved.
+        visited_links_file (str): File to store visited URLs.
+        visited_links (set): Tracks visited links to avoid re-scraping.
+        max_depth (int): Maximum depth for crawling related articles.
 
     Methods:
         load_visited_links() -> set:
-            Loads previously visited links from the visited links file.
+            Loads previously visited links from a file.
 
         save_visited_links() -> None:
-            Saves the current set of visited links to the visited links file.
+            Saves the visited links to a file.
 
         create_folder() -> None:
-            Ensures the output directory exists.
+            Creates the output directory if it does not exist.
 
         format_date(iso_date: str) -> str:
-            Converts ISO date strings to a human-readable format (DD/MM/YYYY).
+            Converts an ISO date string to a human-readable format (DD/MM/YYYY).
 
         get_embed_text(text: str) -> str:
-            Generates a binary quantized embedding for the given text and encodes it as Base64.
+            Generates a binary quantized embedding for text and encodes it as Base64.
 
         get_embed_img(img_url: str) -> str:
-            Generates an embedding for an image given its URL and encodes it as Base64.
+            Generates an embedding for an image URL and encodes it as Base64.
 
-        scrape_post(url: str, current_depth: int = 0) -> None:
+        scrape_post(url: str) -> None:
             Scrapes an article from CNN, extracts metadata, content, and embeddings, 
             and saves the data to a JSON file.
 
-        scrape_related_links(soup: BeautifulSoup, current_depth: int) -> None:
-            Extracts and recursively scrapes related article links from a given page.
-
         extract_page_stellar_id(soup: BeautifulSoup) -> Optional[str]:
-            Extracts the unique pageStellarId from the article's script tags.
+            Extracts the unique pageStellarId from script tags in the article's HTML.
 
         extract_title(soup: BeautifulSoup) -> Optional[str]:
-            Extracts the article's title from the HTML.
+            Extracts the article's title.
 
-        extract_author_profile(soup: BeautifulSoup) -> Optional[str]:
-            Extracts the author's profile link or name from the article.
+        extract_author_profile_link(soup: BeautifulSoup) -> Optional[str]:
+            Extracts the author's profile link.
+
+        extract_author_name(soup: BeautifulSoup) -> Optional[str]:
+            Extracts the author's name.
 
         extract_meta_content(soup: BeautifulSoup, property_name: str) -> Optional[str]:
-            Extracts metadata content such as publication or update time.
+            Extracts specific metadata (e.g., publication time) by property name.
 
-        extract_article_paragraphs(soup: BeautifulSoup, ID: str) -> List[Dict[str, Any]]:
-            Extracts paragraphs from the article body and generates embeddings for each.
+        extract_article_paragraphs(soup: BeautifulSoup, ID: str) -> Dict[str, Dict[str, Any]]:
+            Extracts paragraphs from the article and generates embeddings for each.
 
         extract_images(soup: BeautifulSoup, ID: str) -> List[Dict[str, str]]:
             Extracts image URLs, alt text, and generates embeddings for each image.
 
-        extract_srt(soup: BeautifulSoup) -> Optional[str]:
-            Extracts and returns subtitles in SRT format if available in the article.
+        extract_srt(soup: BeautifulSoup, ID: str) -> List[Dict[str, str]]:
+            Extracts subtitles in SRT format, if available, and processes them into chunks.
 
         get_text_from_srt(url: str) -> str:
-            Downloads and parses SRT files from the given URL into plain text.
+            Downloads and parses an SRT file into plain text.
 
         save_post_data_to_json(post_data: Dict[str, Any], filename: str) -> None:
-            Saves the scraped article data to a JSON file in the output directory.
+            Saves scraped article data to a JSON file in the output directory.
     """
-    def __init__(self, output_dir: str = "resources/quantized-db", visited_links_file="visited_links.json", max_depth=10):
+    def __init__(self, output_dir: str = "resources/quantized-db", visited_links_file="visited_links.json"):
         self.output_dir = output_dir
         self.user_agent = UserAgent()
         self.visited_links_file = visited_links_file
@@ -120,7 +120,6 @@ class CNNCrawler:
         self.text_embed_model = NomicEmbed()
         self.vision_embed_model = NomicEmbedVision()
         self.semantic_chunker = SemanticChunker(breakpoint_percentile_threshold=60)
-        self.max_depth = max_depth
         self.driver = Driver()
 
     def load_visited_links(self) -> set:
@@ -227,24 +226,6 @@ class CNNCrawler:
         self.save_visited_links()
 
         return post_data
-
-        #self.scrape_related_links(soup, current_depth + 1)
-
-    # def scrape_related_links(self, soup: BeautifulSoup, current_depth: int) -> None:
-    #     links = soup.find_all("a", href=True, class_="container__link")
-    #     for link in links:
-    #         href = link["href"]
-    #         if href.startswith("http"):
-    #             full_url = href
-    #         elif href.startswith("/"):
-    #             full_url = f"https://edition.cnn.com{href}"
-    #         else:
-    #             continue
-    #         if full_url in self.visited_links:
-    #             continue
-    #         if not "/videos/" in href and not "/video/" in href:
-    #             continue
-    #         self.scrape_post(full_url, current_depth)
         
 
     def extract_page_stellar_id(self, soup: BeautifulSoup) -> Optional[str]:
@@ -394,87 +375,20 @@ class CNNCrawler:
         with open(file_path, 'w', encoding='utf-8') as json_file:
             json.dump(post_data, json_file, ensure_ascii=True, indent=4)
 
-'''
-class CNNLinkGetter:
-    """
-    A class to scrape CNN post links (including video links) from the homepage.
-    
-    Attributes:
-        base_url (str): The base URL of the CNN website (default is 'https://edition.cnn.com').
-
-    Methods:
-        get_web_stats(url: str) -> str:
-            Scrapes the web page content for a given URL using Selenium.
-        
-        get_CNN_post_links(limit: int = 100000) -> List[str]:
-            Scrapes post links from the CNN homepage, including video links, up to a specified limit.
-    """
-    def __init__(self, base_url: str = "https://edition.cnn.com"):
-        self.base_url = base_url
-
-    def get_web_stats(self, url: str) -> str:
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless")
-        driver = webdriver.Chrome(options=options)
-
-        try:
-            driver.get(url)
-            return driver.page_source
-        finally:
-            driver.quit()
-
-    def get_CNN_post_links(self, limit: int = 100000) -> List[str]:
-        content = self.get_web_stats(self.base_url)
-        soup = BeautifulSoup(content, 'html.parser')
-
-        post_links = []
-        for a in soup.select('a.container__link'):
-            href = a.get('href')
-            if href and "/videos/" in href or "/video/" in href:
-                full_url = href if href.startswith('http') else ("https://edition.cnn.com").rstrip('/') + href
-                post_links.append(full_url)
-
-            if len(post_links) >= limit:
-                break
-
-        return post_links
-    
-def get_subnav_links(base_url: str) -> List[str]:
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless")
-        driver = webdriver.Chrome(options=options)
-
-        try:
-            driver.get(base_url)
-    
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-            subnav_links = []
-            for a_tag in soup.find_all('a', class_='subnav__section-link'):
-                href = a_tag.get('href')
-                if href:
-                    full_url = href if href.startswith('http') else base_url.rstrip('/') + href
-                    subnav_links.append(full_url)
-    
-            return subnav_links
-        finally:
-            driver.quit()
-    '''
-
 class CNNSearcher:
     """
-    A class to interact with the CNN search page and retrieve links to search results.
-
-    This class allows users to search for a specific keyword on the CNN website and retrieve
-    a list of URLs of the articles or videos in the search results. It uses Selenium to scrape
-    the search result page and fetch the URLs of the articles or videos.
+    A class to search the CNN website and retrieve article or video links based on keywords.
 
     Attributes:
-        base_url (str): The base URL for the CNN search page (default is 'https://edition.cnn.com/search').
+        base_url (str): The CNN search page URL (default: 'https://edition.cnn.com/search').
+        scrawler (CNNCrawler): Handles scraping content from individual posts.
 
     Methods:
         search(keyword: str, size: int = 10, page: int = 1, sort: str = "newest") -> List[str]:
-            Searches CNN for the given keyword and returns a list of URLs of the search result articles.
-            Supports pagination and sorting by date.
+            Retrieves a list of article or video URLs for a given keyword with optional pagination and sorting.
+
+        search_posts(keyword: str, size: int = 10, max_workers: int = os.cpu_count() * 2) -> List[dict]:
+            Fetches and parses search results for a keyword, returning content as a list of dictionaries.
     """
     def __init__(self, base_url: str = "https://edition.cnn.com/search"):
         self.base_url = base_url

@@ -3,7 +3,7 @@ import json
 import sys
 import re
 import requests
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from bs4 import BeautifulSoup
 from datetime import datetime
 from dotenv import load_dotenv
