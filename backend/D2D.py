@@ -9,6 +9,7 @@ from numpy import ndarray
 import json
 from datetime import datetime
 from utils import binary_array_to_base64, base64_to_binary_array, binary_quantized, float32_vector_to_base64, base64_to_float32_vector
+import copy
 
 def datetime_to_str(dt: datetime) -> str:
     if dt is None:
@@ -135,16 +136,17 @@ class D2D():
     def save_to_disk(self, file_path: str, data: dict) -> None:
         """Saves json data to disk.
         """
-        for id in data["content"]:
-            emb = data["content"][id]["embedding"]
+        dat = copy.deepcopy(data)
+        for id in dat["content"]:
+            emb = dat["content"][id]["embedding"]
             base64 = binary_array_to_base64(emb)
-            data["content"][id]["embedding"] = base64
-        for id in data["images"]:
-            emb = data["images"][id]["embedding"]
+            dat["content"][id]["embedding"] = base64
+        for id in dat["images"]:
+            emb = dat["images"][id]["embedding"]
             base64 = float32_vector_to_base64(emb)
-            data["images"][id]["embedding"] = base64
+            dat["images"][id]["embedding"] = base64
         with open(file_path, 'w') as f:
-            f.write(json.dumps(data, indent=4))
+            f.write(json.dumps(dat, indent=4))
 
     def load_from_disk(self, file_path:str) -> dict:
         """Loads json data from disk.
