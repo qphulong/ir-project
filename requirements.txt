@@ -24,4 +24,6 @@ memory_profiler
 qdrant-client
 
 # FastAPI
-fastapi[standard]
+fastapi["standard"]
+python-multipart==0.0.20
+aiofiles==24.1.0

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface InputAreaProps {
   onSendMessage: (content: string) => void
@@ -26,8 +27,8 @@ export function InputArea({ onSendMessage, preprocessedQuery, disabled }: InputA
   }, [preprocessedQuery]);
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 border-t bg-white">
-      <div className="flex space-x-2">
+    <form onSubmit={handleSubmit} className="h-full w-full pl-2 pr-4 py-4 border-t bg-white">
+      <div className="flex space-x-2 h-full">
         <Textarea
           placeholder="Type your message here..."
           value={input}
@@ -36,10 +37,19 @@ export function InputArea({ onSendMessage, preprocessedQuery, disabled }: InputA
           rows={1}
           disabled={disabled}
         />
-        <Button type="submit" disabled={disabled}>
-          <Send className="h-4 w-4" />
-          <span className="sr-only">Send</span>
-        </Button>
+        <TooltipProvider delayDuration={350} skipDelayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button className="h-full" type="submit" disabled={disabled}>
+                <Send />
+                <span className="sr-only">Send</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Send message
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </form>
   )

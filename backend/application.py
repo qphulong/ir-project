@@ -91,6 +91,7 @@ class Application():
             vector = value['embedding']
             #vector = base64_to_binary_array(vector)
             self.retriever.add_point_to_text_space(point_id=point_id,vector=vector)
+        os.remove(path)
         """Uncomment this if you want to add image vectors to image space and D2D support image (currently not)
         for key, value in data['images'].items():
             point_id = key

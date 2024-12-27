@@ -2,7 +2,8 @@ import sys
 import os
 import json
 import asyncio
-from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
+import aiofiles
+from fastapi import BackgroundTasks, FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -17,6 +18,9 @@ api = FastAPI()
 api.mount("/static", StaticFiles(directory="backend/api/static"), name="static")
 templates = Jinja2Templates(directory="backend/api/templates")
 query_sessions: dict[str, QuerySession] = {}
+
+# Create 'uploads' directory if it doesn't exist
+os.makedirs("uploads", exist_ok=True)
 
 # Register the API routes here
 # Ping route (for testing)
@@ -81,20 +85,36 @@ async def preprocess_query(request: Request):
     Flask API endpoint for the NaiveRAG system.
     Accepts a POST request with JSON payload containing the user query.
     """
-    try:
-        # Get JSON data from request
-        data = await request.json()
-        user_query = data.get("query", "")
-        if not user_query:
-            raise HTTPException(status_code=400, detail="Query not provided")
-        
-        # Process the user query through NaiveRAG
-        # answer = naive_rag.process_query(user_query)
-        answer = application.preprocess_query(user_query)
-        # return jsonify(answer), 200
-        return {"response": answer}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Get JSON data from request
+    data = await request.json()
+    user_query = data.get("query", "")
+    if not user_query:
+        raise HTTPException(status_code=400, detail="Query not provided")
+    
+    # Process the user query through NaiveRAG
+    # answer = naive_rag.process_query(user_query)
+    answer = application.preprocess_query(user_query)
+    # return jsonify(answer), 200
+    return {"response": answer}
+    
+@api.post('/api/upload-document')
+async def upload_document(file: UploadFile, background_tasks: BackgroundTasks):
+    """
+    Flask API endpoint to upload a document file.
+    """
+    # Get the file content
+    content = await file.read()
+    # Get the file name
+    filename = file.filename
+    # Check if the file is docx or pdf
+    if not filename.endswith((".docx", ".pdf")):
+        raise HTTPException(status_code=400, detail="Invalid file format")
+    path = os.path.join("uploads", filename)
+    async with aiofiles.open(path, "wb+") as f:
+        await f.write(content)
+    background_tasks.add_task(application.insert_doc, path)
+    # Return a 201 response
+    return {"message": "Document uploaded successfully"}
     
 # Index route, transfer control to the React frontend
 # full_path is needed, DO NOT REMOVE

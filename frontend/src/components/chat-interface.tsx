@@ -1,12 +1,17 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, ChangeEvent } from 'react'
 import { Sidebar } from './sidebar'
 import { RightSidebar } from './right-sidebar'
 import { ChatArea } from './chat-area'
 import { InputArea } from './input-area'
-import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose, CircleAlert } from 'lucide-react'
+import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose, CircleAlert, FileIcon } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import useWebSocket, { ReadyState } from "react-use-websocket"
+import { Input } from './ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
+import { api } from '@/api'
+import { useToast } from '@/hooks/use-toast'
+import { Spinner } from './ui/spinner'
 
 export interface Message {
   id: number
@@ -40,6 +45,10 @@ enum QueryState {
   ERROR
 }
 
+export const ACCEPTED_DOCUMENT_MIME_TYPES = new Set<string>(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
+
+export const FILE_INPUT_ACCEPT_VALUE = Array.from(ACCEPTED_DOCUMENT_MIME_TYPES).join(',');
+
 export default function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
@@ -48,6 +57,8 @@ export default function ChatInterface() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
   const [isInputAreaDisabled, setIsInputAreaDisabled] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [canUpload, setCanUpload] = useState(true)
+  const { toast } = useToast()
   const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket("ws://localhost:4000/api/process-query", {
     share: true
   });
@@ -248,6 +259,37 @@ export default function ChatInterface() {
     }
   }
 
+  async function onFileInputChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!ACCEPTED_DOCUMENT_MIME_TYPES.has(file?.type)) {
+          toast({
+            variant: "destructive",
+            title: "Invalid file type",
+            description: "Please upload a valid document type (PDF, DOCX)."
+          })
+          return;
+      }
+      setCanUpload(false);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        await api.postForm('/api/upload-document', formData);
+      }
+      catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Upload failed",
+          description: "An error occurred while uploading the document."
+        })
+      }
+      finally {
+        e.target.value = '';
+        setCanUpload(true);
+      }
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-100 relative">
       <Sidebar
@@ -293,7 +335,29 @@ export default function ChatInterface() {
           <p className="text-xl ">Unable to establish connection with the chat API. Try to refresh this page.</p>
         </div> :
         <ChatArea messages={currentConversation?.messages || []} isTyping={isTyping} />}
-        <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isTyping || isInputAreaDisabled}/>
+        <div className='flex bg-white items-center'>
+          <div className='pl-4 py-4 h-full'>
+          <TooltipProvider delayDuration={350} skipDelayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <label
+                  htmlFor="file-upload"
+                  className={"cursor-pointer h-full flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground shadow hover:bg-primary/90 px-4 py-2" + (canUpload ? "" : " pointer-events-none")}
+                >
+                  {canUpload ?
+                  <FileIcon /> :
+                  <Spinner /> }
+                </label>
+              </TooltipTrigger>
+              <Input id="file-upload" type="file" className="hidden" accept={FILE_INPUT_ACCEPT_VALUE} onChange={onFileInputChange}/>
+              <TooltipContent side="bottom">
+                Upload a new file
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          </div>
+          <InputArea onSendMessage={addMessage} preprocessedQuery={preprocessedQuery} disabled={isTyping || isInputAreaDisabled}/>
+        </div>
       </div>
       <Button
         variant="outline"
