@@ -71,10 +71,15 @@ class MediumScraper:
         try:
             article_ids = self.search_posts(query=keyword, k=k)
 
+            contents = []
+
             for i, article_id in enumerate(article_ids, start=1):
-                print(f"Processing article {i}/{k} (ID: {article_id})")
                 article_details = self.fetch_article_details(article_id)
+                if article_details:
+                    contents.append(article_details)
                 self.save_article_to_file(article_details, "medium_" + article_id)
+            
+            return contents
 
         except Exception as e:
             print(f"Error during scraping and saving articles: {e}")
@@ -232,7 +237,7 @@ class MediumScraper:
         return images
 
     def save_article_to_file(self, article_details: Dict[str, Any], article_id: str):
-        file_name = f"resources/test-big-database/database/Medium/{article_id}.json"  
+        file_name = f"resources/quantized-db/{article_id}.json"  
 
         with open(file_name, "w", encoding="utf-8") as file:
             json.dump(article_details, file, ensure_ascii=True, indent=4)

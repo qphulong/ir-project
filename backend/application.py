@@ -279,7 +279,7 @@ class Application():
         query_sessions[client_id] = QuerySession(QueryState.SUCCESS, result)
 
     
-    def search_internet(self,search_query:str,n_cnn:int=2,n_medium:int=4):
+    def search_internet(self,search_query:str,n_cnn:int=0,n_medium:int=2):
         """
         Function to crawl realtime posts on CNN and medium
 
