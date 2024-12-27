@@ -106,6 +106,9 @@ async def upload_document(file: UploadFile, background_tasks: BackgroundTasks):
     content = await file.read()
     # Get the file name
     filename = file.filename
+    # Safeguard against .git file tampering
+    if filename.startswith(".git"):
+        raise HTTPException(status_code=400, detail="Invalid filename")
     # Check if the file is docx or pdf
     if not filename.endswith((".docx", ".pdf")):
         raise HTTPException(status_code=400, detail="Invalid file format")
