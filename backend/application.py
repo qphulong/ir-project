@@ -302,17 +302,14 @@ class Application():
             for item in contents:
                 for id, value in item.items():
                     self.retriever.add_point_to_text_space(id, base64_to_binary_array(value["embedding"]))
-                    print(f'contents: {value["embedding"]}')
 
             for item in metadatas:
                 for id, value in item.items():
                     self.retriever.add_point_to_metadata_space(id, base64_to_binary_array(value))
-                    print(f'metadata:{value}')
 
             for item in images:
                 for id, value in item.items():
                     self.retriever.add_point_to_image_space(id, base64_to_float32_vector(value["embedding"]))
-                    print(f'image:{value["embedding"]}')
 
             self.indexer.clear_data()
             return True
