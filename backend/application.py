@@ -44,6 +44,27 @@ class Application():
             self.text_embed_model = NomicEmbed()
             self.query_preprocessor = QueryPreprocessor()
             self.initialized = True
+            self.documents_loader = D2D()
+
+    def _load_doc(self, path: str) -> dict:
+        """Load document file (docx, pdf) to ram (dict)
+        Args:
+            path str: file path
+        Returns:
+            data dict: data in dict
+        """
+        data = self.documents_loader.convert_to_dict(path)
+        if data is None:
+            raise ValueError(f"Cannot load data from {path}")
+        return data
+    
+    def _save_data(self, path: str, data: dict) -> None:
+        """Save data from ram (dict) to disk (json)
+        Args:
+            path str: file path
+            data dict: dict data
+        """
+        self.documents_loader.save_to_disk(path, data)
 
     def insert_doc(self,path:str)->None:
         """Save the document in the database path (./resources/quantized-db) 
@@ -68,7 +89,7 @@ class Application():
         for key, value in data['content'].items():
             point_id = key
             vector = value['embedding']
-            vector = base64_to_binary_array(vector)
+            #vector = base64_to_binary_array(vector)
             self.retriever.add_point_to_text_space(point_id=point_id,vector=vector)
         """Uncomment this if you want to add image vectors to image space and D2D support image (currently not)
         for key, value in data['images'].items():
